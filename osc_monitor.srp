@@ -37,12 +37,6 @@ def full(osc_path):
     # make a full O2 path based on SERVICE
     return "/" + SERVICE + osc_path
 
-def initialize_o2():
-    o2_initialize(APPLICATION, false)
-    o2_service_new(SERVICE)
-    # o2_debug_flags("O")
-    o2_clock_set()
-
 def install_donttouchosc_handlers():
     print "Installing handlers for donttouchosc.srp messages"
     o2_method_new(full("/cmsip/buttonA"), "f", 'buttonA', true)
@@ -96,6 +90,12 @@ def generic_handler(timestamp, address, types, rest parameters):
     display "OSC", timestamp, address, types, parameters
 
 
+def initialize_o2():
+    o2_initialize(APPLICATION, false)
+    o2_service_new(SERVICE)
+    # o2_debug_flags("O")
+    o2_clock_set()
+
 def read_command_line_arguments():
 
     if len(command_line_arguments) > 1 and
@@ -107,16 +107,19 @@ def read_command_line_arguments():
             osc_port = int(command_line_arguments[1])
         install_generic_handler()
 
+    rslt = o2_osc_port_new("p3", osc_port, false)
+    # an error occurred
+    if rslt != 0
+        display "in osc monitor, o2_osc_port_new returned ERROR", rslt
 
-
-rslt = o2_osc_port_new("p3", osc_port, false)
-if rslt != 0 // an error occurred
-    display "in osc monitor, o2_osc_port_new returned ERROR", rslt
-
-
-def runit()
+def runit():
     while true
         o2_poll()
         time_sleep(0.01)
 
-runit()
+def main():
+    initialize_o2()
+    read_command_line_arguments()
+    runit()
+
+main()
