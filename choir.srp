@@ -1,0 +1,124 @@
+# File : choir.srp
+# Author : Yanning Mao (yanningm)
+# Date : Feb 15, 2018
+# Course : CMU 15-323 S18
+#
+# Description:
+# This file contains a class that represents a choir consisting of four
+# independent sound tracks.
+# A Choir object has
+# + a slider that controls the tempo
+# + a stop all button that stops the entire music
+# + a start all button that starts the entire music
+
+
+require "track"
+
+
+# The class representing the choir consisting of multiple sound tracks
+class Choir:
+
+    # the sound tracks of the Choir
+    var track_one
+    var track_two
+    var track_three
+    var track_four
+    # the list of sound tracks
+    var tracks
+
+    # the buttons and sliders that control the Choir
+    var stop_all_button      # stops all tracks
+    var start_all_button     # starts all tracks
+    var period_slider        # controls the period
+
+    # initializes the sliders, buttons, and sound tracks
+    def init():
+
+        # initialize the period slider
+        init_period_slider()
+        # initialize the stop and start buttons
+        init_buttons()
+
+        # the initial x and y positions for the track block on the frame
+        lane_height = button_height + slider_height + 3 * margin_top
+        track_init_x = margin_left
+        track_init_y = lane_height
+        # track one
+        track_one = Track(sound_one_base_pitch, sound_one_name,
+                                sound_one_num, sound_one_chann,
+                                track_init_x, track_init_y)
+        # track two
+        track_init_y = track_init_y + lane_height
+        track_two = Track(sound_two_base_pitch, sound_two_name,
+                                sound_two_num, sound_two_chann,
+                                track_init_x, track_init_y)
+        # track three
+        track_init_y = track_init_y + lane_height
+        track_three = Track(sound_three_base_pitch, sound_three_name,
+                                sound_three_num, sound_three_chann,
+                                track_init_x, track_init_y)
+        # track four
+        track_init_y = track_init_y + lane_height
+        track_four = Track(sound_four_base_pitch, sound_four_name,
+                                sound_four_num, sound_four_chann,
+                                track_init_x, track_init_y)
+        tracks = [track_one, track_two, track_three, track_four]
+
+    # initializes the slider that controls the tempo
+    def init_period_slider():
+        # calculate slider parameters
+        x = margin_left
+        y = int(window_height / 2 + 30)
+        label_name = "Period"
+        label_width = len(label_name) * 8
+        # set the slider
+        period_slider = Labeled_slider(default_window, label_name,
+                                        x, y, slider_width + label_width,
+                                        slider_height, label_width,
+                                        min_period, max_period, init_period,
+                                        'exponential')
+        period_slider.target = this
+        period_slider.method = 'set_period'
+
+    # handler for the tempo control slider, resets the tempo
+    def set_period(obj, x):
+        sched_select(vtsched)
+        sched_set_period(x)
+
+    # initializes the buttons
+    def init_buttons():
+
+        # calculate parameters for button position
+        button_x = margin_left
+        button_y = int(window_height / 2 + margin_left)
+        button_name = "Stop All"
+        button_width = len(button_name) * 10
+        button_height = 25
+
+        # set the stop all button
+        stop_all_button = Button(0, button_name, button_x, button_y,
+                                                 button_width, button_height)
+        stop_all_button.target = this
+        stop_all_button.method = 'stop_all'
+
+        # set the start all button
+        button_x = button_x + button_width + margin_left
+        button_name = "Start All"
+        button_width = len(button_name) * 10
+        start_all_button = Button(0, button_name, button_x, button_y,
+                                                  button_width, button_height)
+        start_all_button.target = this
+        start_all_button.method = 'start_all'
+
+    # handler for the stop all button, stops all tracks
+    def stop_all(rest ignore):
+        # stop all tracks
+        for i = 0 to len(tracks):
+            tracks[i].track_playing = false
+
+    # handler for the start all button, starts all tracks
+    def start_all(rest ignore):
+        # start all tracks
+        for i = 0 to len(tracks):
+            tracks[i].track_playing = true
+

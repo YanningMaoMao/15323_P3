@@ -84,6 +84,7 @@ def canvas(timestamp, address, types, x, y, status):
 
 def install_generic_handler():
     print "Listening for all OSC messages to port", osc_port
+    # register the generic handler for p3
     o2_method_new("/p3", nil, 'generic_handler', false)
 
 def generic_handler(timestamp, address, types, rest parameters):
@@ -107,7 +108,7 @@ def read_command_line_arguments():
             osc_port = int(command_line_arguments[1])
         install_generic_handler()
 
-    rslt = o2_osc_port_new("p3", osc_port, false)
+    rslt = o2_osc_port_new(SERVICE, osc_port, false)
     # an error occurred
     if rslt != 0
         display "in osc monitor, o2_osc_port_new returned ERROR", rslt
@@ -120,6 +121,7 @@ def runit():
 def main():
     initialize_o2()
     read_command_line_arguments()
+    # sched_o2_enabled = true
     runit()
 
 main()

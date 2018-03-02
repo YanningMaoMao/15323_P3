@@ -1,0 +1,91 @@
+# File : canvas.srp
+# Author : Yanning Mao (yanningm)
+# Date : Feb 15, 2018
+# Course : CMU 15-323 S18
+#
+# Description:
+#
+# This file contains a class MusicCanvas which represents a canvas that 
+# displays some animation according to the music being played.
+#
+# This class subclasses the Canvas class. It therefore has a paint method that
+# paints on the canvas and an animate method that refreshes the canvas quickly
+# to generate animation
+#
+# A MusicCanvas object takes a Choir object as plugin, and generates animation
+# according to the music.
+#
+# The animation represents each track in the Choir using a horizontal line,
+# whose y position becomes higher when the pitch is higher and color becomes
+# more red when the volume is larger.
+
+
+require "constants"
+require "choir"
+
+
+# The canvas that displays the animation according to the music
+class MusicCanvas (Canvas):
+
+    # the music to be displayed on the canvas
+    var choir
+
+    # takes music plugin
+    def take_plugin(choir):
+        this.choir = choir
+
+    # calculate the color of the line according to the volume
+    def get_rgb_from_velocity(vel):
+        # larger voices have brighter color
+        vel_ratio = (vel - min_vel) / (max_vel - min_vel)
+        r = max_rgb
+        g = max_rgb - min(max_rgb, int(max_rgb * vel_ratio))
+        b = 0
+        return [r, g, b]
+
+    # calculate the y position of the line according to the pitch
+    def get_height_from_pitch(pitch):
+
+        # higher pitches appear higher on the canvas
+        pitch_ratio = (pitch - min_pitch) / (max_pitch - min_pitch)
+        height_range = window_height / 2 - canvas_margin * 2 - margin_top
+
+        # the y value is smaller for larger height
+        height = int(height_range * (1 - pitch_ratio))
+        return height
+
+    # paint the lines representing the tracks
+    def paint(x):
+
+        # calculate the parameters for drawing
+        rec_margin = 15
+        rec_height = 3
+        rec_width = (window_width - 2 * canvas_margin - (num_tracks + 1) * rec_margin) / num_tracks
+        rec_x = canvas_margin + rec_margin
+        text_x = rec_x + rec_width / 4
+        text_y = window_height / 2 - 4 * canvas_margin - margin_top
+
+        # paint a line representing the pitch and velocity for each track
+        for i = 0 to num_tracks:
+
+            track = choir.tracks[i]
+
+            # calculate the RGB colors and the position
+            rgb = get_rgb_from_velocity(track.curr_vel)
+            rec_y = get_height_from_pitch(track.curr_pitch)
+            set_pen_rgb(rgb[0], rgb[1], rgb[2])
+            set_brush_rgb(rgb[0], rgb[1], rgb[2])
+
+            # draw the line
+            draw_rectangle(rec_x, rec_y, rec_width, rec_height)
+            draw_text(text_x, text_y, choir.tracks[i].sound_name)
+
+            # update position parameters for the line representing next track
+            rec_x = rec_x + rec_width + rec_margin
+            text_x = text_x + rec_width + rec_margin
+
+    # produces animation by refreshing the canvas
+    def animate():
+        p2Canvas.refresh(t)
+        sched_cause(0.02, this, 'animate')
+

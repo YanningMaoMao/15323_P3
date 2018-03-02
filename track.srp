@@ -1,0 +1,223 @@
+# File : track.srp
+# Author : Yanning Mao (yanningm)
+# Date : Feb 15, 2018
+# Course : CMU 15-323 S18
+#
+# Description:
+#
+# This file contains a class that represents a sound track.
+#
+# The sound track consists of
+# + a set of pitches that the track can play
+# + a rhythm that this track follows
+# + a specific channel that the track will be played
+# + the number for the sound effect of this track
+# + a slider that controls the volume
+# + a stop button that stops the track
+# + a start button that starts the track
+# + an octave-up button that raises all pitches by one octave
+# + an octave-down button that lowers all pitches by one octave
+#
+# A Track object has a method 'play', which once called, continuously plays
+# the notes according to the tempo and the rhythm.
+# The rhythm of the track is a list of 16 randomly generated tokens, each is
+# either 0 or 1 with half probability. The track repeatedly plays this rhythem
+# by playing the note if the token is 1 and not playing if the token is 0.
+# Every time a note is played, the pitch is decided by randomly picking one
+# from the set of possible pitches.
+
+
+require "constants"
+
+
+# The class Track that represents a sound track
+class Track:
+
+    # current pitch and current velocity of the track
+    var curr_pitch
+    var curr_vel
+
+    # basic information about the track
+    var sound_name
+    var sound_num
+    var sound_chann
+
+    # indicating if the track is playing
+    var track_playing
+
+    # the rhythm and the pitches of the track
+    var rhythm
+    var pitches
+
+    # buttons and sliders that control the track
+    var velocity_slider     # controls the volume
+    var stop_button         # stops the track
+    var start_button        # starts the track
+    var octave_up_button    # raises one octave
+    var octave_down_button  # lowers one octave
+
+
+    # initializes a Track object, initializes the rhythm, pitches, sound effect
+    # information, the sliders and the buttons
+    def init(base_pitch, name, num, chann, init_x, init_y):
+
+        # the the parameters of the track sound
+        sound_name = name
+        sound_num = num
+        sound_chann = chann
+
+        # set the sound effect of the track
+        midi_out.program(sound_chann, sound_num)
+
+        # set the track to be initially playing
+        track_playing = true
+
+        # set the rhythm
+        rhythm = []
+        random_seed(int(time_get() * 1000) + num)
+        # randomly generate a cycle of 16 tokens
+        for i = 0 to notes_per_cycle:
+            # play the note for one-half probability
+            if random() < 0.5:
+                rhythm.insert(0, 1)
+            # does not play for one-half probability
+            else:
+                rhythm.insert(0, 0)
+
+        # set the pitches
+        pitches = []
+        for i = 0 to len(sound_one_delta_pitches):
+            pitches.insert(i, base_pitch + sound_one_delta_pitches[i])
+
+        # set the velocity slider
+        init_velocity_slider(init_x, init_y)
+        # set the start, stop and octave control buttons
+        init_buttons(init_x, init_y)
+
+        # set current velocity to initial velocity
+        curr_vel = int(velocity_slider.value())
+        # set current pitch to a random initial pitch
+        curr_pitch = pr_choice(pitches)
+
+
+    # initializes the slider that controls the volume
+    def init_velocity_slider(init_x, init_y):
+        # set the parameters of the slider
+        x = margin_left
+        y = int(window_height / 2) + init_y + button_height + margin_top
+        label_name = sound_name + " " + "Velocity"
+        label_width = len(label_name) * 8
+        # draw the slider
+        velocity_slider = Labeled_slider(default_window, label_name,
+                                        x, y, label_width + slider_width,
+                                        slider_height, label_width,
+                                        min_vel, max_vel, init_vel,
+                                        'linear')
+        velocity_slider.target = this
+
+    # initializes the buttons
+    def init_buttons(init_x, init_y):
+        # initialize stop button
+        x = margin_left
+        y = int(window_height / 2) + init_y + margin_top
+        button_name = "Stop " + sound_name
+        button_width = len(button_name) * 10
+        stop_button = Button(0, button_name, x, y,
+                                button_width, button_height)
+        stop_button.target = this
+        stop_button.method = 'stop'
+
+        # initialize start button
+        x = x + button_width + margin_left
+        button_name = "Start " + sound_name
+        button_width = len(button_name) * 10
+        start_button = Button(0, button_name, x, y,
+                                button_width, button_height)
+        start_button.target = this
+        start_button.method = 'start'
+
+        # initialize octave up
+        x = x + button_width + margin_left
+        button_name = "Octave Up"
+        button_width = len(button_name) * 10
+        octave_up_button = Button(0, button_name, x, y,
+                                button_width, button_height)
+        octave_up_button.target = this
+        octave_up_button.method = 'octave_up'
+
+        # initialize octave down
+        x = x + button_width + margin_left
+        button_name = "Octave Down"
+        button_width = len(button_name) * 10
+        octave_down_button = Button(0, button_name, x, y,
+                                    button_width, button_height)
+        octave_down_button.target = this
+        octave_down_button.method = 'octave_down'
+
+    # stops the track
+    def stop(rest ignore):
+        track_playing = false
+
+    # starts the track
+    def start(rest ignore):
+        track_playing = true
+
+    # raise one octave if valid
+    def octave_up(rest ignore):
+        # find highest pitch
+        highest_pitch = pitches[0]
+        for i = 1 to len(pitches):
+            if pitches[i] > highest_pitch:
+                highest_pitch = pitches[i]
+        # raise all pitches by one octave
+        if highest_pitch + octave_pitches > max_pitch:
+            return
+        else:
+            new_pitches = []
+            for i = 0 to len(pitches):
+                new_pitches.insert(0, pitches[i] + octave_pitches)
+            pitches = new_pitches
+            return
+
+    # lower one octave if valid
+    def octave_down(rest ignore):
+        # find highest pitch
+        lowest_pitch = pitches[0]
+        for i = 1 to len(pitches):
+            if pitches[i] < lowest_pitch:
+                lowest_pitch = pitches[i]
+        # lower all pitches by one octave
+        if lowest_pitch - octave_pitches < min_pitch:
+            return
+        else:
+            new_pitches = []
+            for i = 0 to len(pitches):
+                new_pitches.insert(0, pitches[i] - octave_pitches)
+            pitches = new_pitches
+            return
+
+    # continuously play a random note from the set of pitches for this track
+    # according to the rhythm
+    def play(rhythm_idx, pitch):
+        display "play", sound_name, sched_rtime, time_get()
+
+        # stop last note
+        midi_out.note_on(sound_chann, pitch, 0)
+        
+        curr_vel = int(velocity_slider.value())
+        curr_pitch = pitch
+
+        # play the note iff the track is playing
+        if  track_playing:
+
+            # set parameters for next pitch
+            rhythm_idx = (rhythm_idx + 1) % notes_per_cycle
+
+            # play the note
+            if (rhythm[rhythm_idx] > 0):
+                curr_pitch = pr_choice(pitches)
+                midi_out.note_on(sound_chann, curr_pitch, curr_vel)
+
+        # schedule next note
+        sched_cause(1, this, 'play', rhythm_idx, curr_pitch)
+

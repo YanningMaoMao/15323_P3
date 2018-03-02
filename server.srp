@@ -1,0 +1,215 @@
+# osc_monitor.srp -- a test program to receive from donttouchosc.srp and
+#                    other OSC sources
+#
+# Gus Xia and Roger Dannenberg
+# Feb 14, 2014
+# modified for O2, Feb 2017
+
+# run this with serpent64 (not wxserpent)
+#
+# this program demostrates receiving OSC messages from a client,
+# specifically the wxserpent program donttouchosc.srp.
+#
+# To see donttouchosc.srp messages, run like this on the command line:
+#    serpent64 osc_monitor d
+# To see ALL osc messages, run like this on the command line:
+#    serpent64 osc_monitor [port-number]
+# where port-number is an optional decimal integer
+
+require "debug"
+
+# This is the O2 application name. Only O2 processes with the same
+# application name and same local area network can communicate, so
+# we make the application name easy to change.
+APPLICATION = "p3"
+
+# Similarly, we make the service name easy to change here so that
+# this program can be modified to offer any O2 service. Note that
+# service names are assumed to be unique, so if you try to "snoop"
+# on messages to another service, you may interfere with that service.
+SERVICE = "p3"
+
+# default port number that O2 listens on
+osc_port = 8001
+
+# make a full path with SERVICE prefix
+def full(osc_path):
+    # make a full O2 path based on SERVICE
+    return "/" + SERVICE + osc_path
+
+def install_handlers_for_choir():
+    # the button that stops all sound tracks
+    o2_method_new(full("/cmsip/stopAllButton"), "f",
+    				'stop_all_button_handler', true)
+    # the button that starts all sound tracks
+    o2_method_new(full("/cmsip/startAllButton"), "f",
+    				'start_all_button_handler', true)
+    # the slider that controls the period
+    o2_method_new(full("/cmsip/periodSlider"), "f",
+    				'period_slider_handler', true)
+    return
+
+
+def install_handlers_for_track_one():
+    # the button that stops the sound track
+    o2_method_new(full("/cmsip/stopTrackOneButton"), "f",
+    				'stop_track_one_handler', true)
+    # the button that raises the octave of the sound track
+    o2_method_new(full("/cmsip/octaveUpTrackOneButton"), "f",
+    				'octave_up_track_one_button_handler', true)
+    # the button that lowers the octave of the sound track
+    o2_method_new(full("/cmsip/octaveDownTrackOneButton"), "f",
+    				'octave_down_track_one_button_handler', true)
+    # the button that starts the sound track
+    o2_method_new(full("/cmsip/startTrackOneButton"), "f",
+    				'start_track_one_handler', true)
+    # the slider that controls the volume of the track
+    o2_method_new(full("/cmsip/velocityTrackOneSlider"), "f",
+    				'velocity_track_one_slider_handler', true)
+    return
+
+
+def install_handlers_for_track_two():
+	# the button that stops the sound track
+    o2_method_new(full("/cmsip/stopTrackTwoButton"), "f",
+    				'stop_track_two_handler', true)
+    # the button that raises the octave of the sound track
+    o2_method_new(full("/cmsip/octaveUpTrackTwoButton"), "f",
+    				'octave_up_track_two_button_handler', true)
+    # the button that lowers the octave of the sound track
+    o2_method_new(full("/cmsip/octaveDownTrackTwoButton"), "f",
+    				'octave_down_track_two_button_handler', true)
+    # the button that starts the sound track
+    o2_method_new(full("/cmsip/startTrackTwoButton"), "f",
+    				'start_track_two_handler', true)
+    # the slider that controls the volume of the track
+    o2_method_new(full("/cmsip/velocityTrackTwoSlider"), "f",
+    				'velocity_track_two_slider_handler', true)
+    return
+
+
+def install_handlers_for_track_three():
+    # the button that stops the sound track
+    o2_method_new(full("/cmsip/stopTrackThreeButton"), "f",
+    				'stop_track_three_handler', true)
+    # the button that raises the octave of the sound track
+    o2_method_new(full("/cmsip/octaveUpTrackThreeButton"), "f",
+    				'octave_up_track_three_button_handler', true)
+    # the button that lowers the octave of the sound track
+    o2_method_new(full("/cmsip/octaveDownTrackThreeButton"), "f",
+    				'octave_down_track_three_button_handler', true)
+    # the button that starts the sound track
+    o2_method_new(full("/cmsip/startTrackTwoButton"), "f",
+    				'start_track_three_handler', true)
+    # the slider that controls the volume of the track
+    o2_method_new(full("/cmsip/velocityTrackThreeSlider"), "f",
+    				'velocity_track_three_slider_handler', true)
+    return
+
+
+def install_handlers_for_track_four():
+    # the button that stops the sound track
+    o2_method_new(full("/cmsip/stopTrackFourButton"), "f",
+    				'stop_track_four_handler', true)
+    # the button that raises the octave of the sound track
+    o2_method_new(full("/cmsip/octaveUpTrackFourButton"), "f",
+    				'octave_up_track_four_button_handler', true)
+    # the button that lowers the octave of the sound track
+    o2_method_new(full("/cmsip/octaveDownTrackFourButton"), "f",
+    				'octave_down_track_four_button_handler', true)
+    # the button that starts the sound track
+    o2_method_new(full("/cmsip/startTrackFourButton"), "f",
+    				'start_track_four_handler', true)
+    # the slider that controls the volume of the track
+    o2_method_new(full("/cmsip/velocityTrackFourSlider"), "f",
+    				'velocity_track_four_slider_handler', true)
+    return
+
+def install_handlers():
+    print "Installing handlers ..."
+    # handlers for Choir
+    install_handlers_for_choir()
+    # handlers for Sound Track One
+    install_handlers_for_track_one()
+    # handlers for Sound Track Two
+    install_handlers_for_track_two()
+    # handlers for Sound Track Three
+    install_handlers_for_track_three()
+    # handlers for Sound Track Four
+    install_handlers_for_track_four()
+
+def stop_all_button_handler(timestamp, address, types, val):
+	
+
+# handler functions for donttouchosc messages
+def buttonA(timestamp, address, types, val):
+    display "server button A", address, val
+def buttonB(timestamp, address, types, val):
+    display "server button B", address, val
+def buttonC(timestamp, address, types, val):
+    display "server button C", address, val    
+def buttonD(timestamp, address, types, val):
+    display "server button D", address, val
+def sliderA(timestamp, address, types, val):
+    display "server slider A", address, val
+def sliderB(timestamp, address, types, val):
+    display "server slider B", address, val
+def sliderC(timestamp, address, types, val):
+    display "server slider C", address, val    
+def sliderD(timestamp, address, types, val):
+    display "server slider D", address, val
+def checkW(timestamp, address, types, val):
+    display "server checkbox W", address, val
+def checkX(timestamp, address, types, val):
+    display "server checkbox X", address, val
+def checkY(timestamp, address, types, val):
+    display "server checkbox Y", address, val
+def checkZ(timestamp, address, types, val):
+    display "server checkbox Z", address, val
+def canvas(timestamp, address, types, x, y, status):
+    display "server canvas", address, x, y, status
+
+
+def install_generic_handler():
+    print "Listening for all OSC messages to port", osc_port
+    # register the generic handler for p3
+    o2_method_new("/p3", nil, 'generic_handler', false)
+
+def generic_handler(timestamp, address, types, rest parameters):
+    display "OSC", timestamp, address, types, parameters
+
+
+def initialize_o2():
+    o2_initialize(APPLICATION, false)
+    o2_service_new(SERVICE)
+    o2_clock_set()
+
+def open_port():
+
+	# use the input port number if given
+	if len(command_line_arguments) > 1 and isdigit(command_line_arguments[1])
+		osc_port = int(command_line_arguments[1])
+
+	# open the port 
+	rslt = o2_osc_port_new(SERVICE, osc_port, false)
+	if rslt != 0
+		print "OSC Server failed to open port on ", osc_port
+	else
+		print "OSC Server listening for OSC messages on port ", osc_port
+
+	return
+
+def run():
+    while true
+        o2_poll()
+        time_sleep(0.01)
+
+def main():
+    initialize_o2()
+    open_port()
+    install_handlers()
+    # read_command_line_arguments()
+    # sched_o2_enabled = true
+    run()
+
+main()
