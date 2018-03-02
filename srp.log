@@ -1,0 +1,27 @@
+debug.srp created srp.log for error report...
+runtime exception handler called
+exception is: [31;49mglobal variable is unbound - WXS_MOVE[39;49m
+frame variables: {}
+frame pc: -1
+frame method: <callin_method>
+frame class: nil
+
+Debugger invoked.
+-----------------------------------------------------
+Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
+-----------------------------------------------------
+Method [32;49m<immediate command 0>[39;49m in class [34;49mnil[39;49m, char 326 in file 
+    /Users/YanningMao1/Desktop/15323/Project/P3/donttouchosc.srp
+  12: require "wxserpent"
+      ^
+-----------------------------------------------------
+Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
+-----------------------------------------------------
+Method [32;49m<immediate command 1>[39;49m in class [34;49mnil[39;49m, char 128 in file 
+    /Users/YanningMao1/serpent/wxslib/wxserpent.srp
+   5: wxs_event_names = { WXS_MOVE: 'MOVE', 
+                          ^
+-----------------------------------------------------
+Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
+[31;49mglobal variable is unbound - WXS_MOVE[39;49m
+1> 

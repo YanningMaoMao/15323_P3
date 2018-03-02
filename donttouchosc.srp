@@ -1,0 +1,140 @@
+# donttouchosc -- a simple control panel that sends OSC messages
+#
+# Gus Xia & Roger Dannenberg
+# Feb 14, 2014
+# modified Feb 2017 to use O2
+
+# This program creates a graphical interface that sends OSC messages
+# to LOCALHOST (the local machine) on port 8001.
+# See the Project 3 handout for message details.
+
+require "debug"
+require "wxserpent"
+
+APPLICATION = "p3"
+SERVICE = "osc"
+PORT = 8001
+
+// osc client
+def startup()
+    o2_initialize(APPLICATION, false)
+    // o2_debug_flags("O")
+    o2_clock_set()
+    o2_osc_delegate(SERVICE, "localhost", PORT, false)
+    
+
+def send_afloat(path, val)
+    # display val
+    o2_send_start()
+    for v in val:
+        if not v
+            v = 0
+        elif v == true
+            v = 1
+        o2_add_float(v)
+    o2_send_finish(0, "/" + SERVICE + path, false)
+
+
+//display
+button = Button(0, "A", 5, 5, 75, 20)
+button.method = 'buttonA_pressed'
+
+button = Button(0, "B", 100, 5, 75, 20)
+button.method = 'buttonB_pressed'
+
+button = Button(0, "C", 195, 5, 75, 20)
+button.method = 'buttonC_pressed'
+
+button = Button(0, "D", 290, 5, 75, 20)
+button.method = 'buttonD_pressed'
+
+//parameters are: parent, min, max, initial, x, y, w, h
+mysliderA = Slider(0, 0, 100, 50, 10, 40, 200, 20)
+mysliderA.method = 'sliderA_move'
+numberA = Statictext(0,"50", 210, 40, 20, 20)
+
+mysliderB = Slider(0, 0, 100, 50, 10, 70, 200, 20)
+mysliderB.method = 'sliderB_move'
+numberB = Statictext(0,"50", 210, 70, 20, 20)
+
+mysliderC = Slider(0, 0, 100, 50, 10, 100, 200, 20)
+mysliderC.method = 'sliderC_move'
+numberC = Statictext(0,"50", 210, 100, 20, 20)
+
+mysliderD = Slider(0, 0, 100, 50, 10, 130, 200, 20)
+mysliderD.method = 'sliderD_move'
+numberD = Statictext(0,"50", 210, 130, 20, 20)
+
+checkboxW = Checkbox(0, "W", 250, 40, 20, 20)
+checkboxW.method = 'checked_W'
+Statictext(0,"W", 270, 40, 20, 20)
+
+checkboxX = Checkbox(0, "X", 250, 70, 20, 20)
+checkboxX.method = 'checked_X'
+Statictext(0,"X", 270, 70, 20, 20)
+
+checkboxY = Checkbox(0, "Y", 250, 100, 20, 20)
+checkboxY.method = 'checked_Y'
+Statictext(0,"Y", 270, 100, 20, 20)
+
+checkboxZ = Checkbox(0, "Z", 250, 130, 20, 20)
+checkboxZ.method = 'checked_Z'
+Statictext(0,"Z", 270, 130, 20, 20)
+
+canvas = Canvas(0, 320, 50, 100, 100)
+canvas.method = 'canvas_move'
+Mouse_status = 0
+
+
+// handlers
+def buttonA_pressed(obj, event, x, y):
+    if event == WXS_BUTTON_CLICKED:
+        x = 1
+    send_afloat("/cmsip/buttonA", [x])
+def buttonB_pressed(obj, event, x, y):
+    if event == WXS_BUTTON_CLICKED:
+        x = 1
+    send_afloat("/cmsip/buttonB", [x])
+def buttonC_pressed(obj, event, x, y):
+    if event == WXS_BUTTON_CLICKED:
+        x = 1
+    send_afloat("/cmsip/buttonC", [x])
+def buttonD_pressed(obj, event, x, y):
+    if event == WXS_BUTTON_CLICKED:
+        x = 1
+    send_afloat("/cmsip/buttonD", [x])
+def sliderA_move(obj, event, x, y):
+    numberA.set_string(str(x))
+    send_afloat("/cmsip/sliderA", [x])
+def sliderB_move(obj, event, x, y):
+    numberB.set_string(str(x))
+    send_afloat("/cmsip/sliderB", [x])
+def sliderC_move(obj, event, x, y):
+    numberC.set_string(str(x))
+    send_afloat("/cmsip/sliderC", [x])
+def sliderD_move(obj, event, x, y):
+    numberD.set_string(str(x))
+    send_afloat("/cmsip/sliderD", [x])
+def checked_W(obj, event, x, y):
+    send_afloat("/cmsip/checkW", [x])
+def checked_X(obj, event, x, y):
+    send_afloat("/cmsip/checkX", [x])
+def checked_Y(obj, event, x, y):
+    send_afloat("/cmsip/checkY", [x])
+def checked_Z(obj, event, x, y):
+    send_afloat("/cmsip/checkZ", [x])
+def canvas_move(obj, event, x, y):
+    if event == WXS_LEFT_DOWN or event == WXS_RIGHT_DOWN:
+        Mouse_status = 1
+    elif event == WXS_LEFT_UP or event == WXS_RIGHT_UP:
+        Mouse_status = 0
+    send_afloat("/cmsip/canvas", [x, y, Mouse_status])
+
+startup()
+
+def timer_callback()
+    o2_poll()
+
+wxs_timer_start(5, 'timer_callback')
+
+

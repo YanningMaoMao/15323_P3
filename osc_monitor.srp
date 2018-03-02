@@ -1,0 +1,122 @@
+# osc_monitor.srp -- a test program to receive from donttouchosc.srp and
+#                    other OSC sources
+#
+# Gus Xia and Roger Dannenberg
+# Feb 14, 2014
+# modified for O2, Feb 2017
+
+# run this with serpent64 (not wxserpent)
+#
+# this program demostrates receiving OSC messages from a client,
+# specifically the wxserpent program donttouchosc.srp.
+#
+# To see donttouchosc.srp messages, run like this on the command line:
+#    serpent64 osc_monitor d
+# To see ALL osc messages, run like this on the command line:
+#    serpent64 osc_monitor [port-number]
+# where port-number is an optional decimal integer
+
+require "debug"
+
+# This is the O2 application name. Only O2 processes with the same
+# application name and same local area network can communicate, so
+# we make the application name easy to change.
+APPLICATION = "p3"
+
+# Similarly, we make the service name easy to change here so that
+# this program can be modified to offer any O2 service. Note that
+# service names are assumed to be unique, so if you try to "snoop"
+# on messages to another service, you may interfere with that service.
+SERVICE = "p3"
+
+# default port number that O2 listens on
+osc_port = 8001
+
+# make a full path with SERVICE prefix
+def full(osc_path):
+    # make a full O2 path based on SERVICE
+    return "/" + SERVICE + osc_path
+
+def initialize_o2():
+    o2_initialize(APPLICATION, false)
+    o2_service_new(SERVICE)
+    # o2_debug_flags("O")
+    o2_clock_set()
+
+def install_donttouchosc_handlers():
+    print "Installing handlers for donttouchosc.srp messages"
+    o2_method_new(full("/cmsip/buttonA"), "f", 'buttonA', true)
+    o2_method_new(full("/cmsip/buttonB"), "f", 'buttonB', true)
+    o2_method_new(full("/cmsip/buttonC"), "f", 'buttonC', true)
+    o2_method_new(full("/cmsip/buttonD"), "f", 'buttonD', true)
+    o2_method_new(full("/cmsip/sliderA"), "f", 'sliderA', true)
+    o2_method_new(full("/cmsip/sliderB"), "f", 'sliderB', true)
+    o2_method_new(full("/cmsip/sliderC"), "f", 'sliderC', true)
+    o2_method_new(full("/cmsip/sliderD"), "f", 'sliderD', true)
+    o2_method_new(full("/cmsip/checkW"), "f", 'checkW', true)
+    o2_method_new(full("/cmsip/checkX"), "f", 'checkX', true)
+    o2_method_new(full("/cmsip/checkY"), "f", 'checkY', true)
+    o2_method_new(full("/cmsip/checkZ"), "f", 'checkZ', true)
+    o2_method_new(full("/cmsip/canvas"), "fff", 'canvas', true)
+
+# handler functions for donttouchosc messages
+def buttonA(timestamp, address, types, val):
+    display "server button A", address, val
+def buttonB(timestamp, address, types, val):
+    display "server button B", address, val
+def buttonC(timestamp, address, types, val):
+    display "server button C", address, val    
+def buttonD(timestamp, address, types, val):
+    display "server button D", address, val
+def sliderA(timestamp, address, types, val):
+    display "server slider A", address, val
+def sliderB(timestamp, address, types, val):
+    display "server slider B", address, val
+def sliderC(timestamp, address, types, val):
+    display "server slider C", address, val    
+def sliderD(timestamp, address, types, val):
+    display "server slider D", address, val
+def checkW(timestamp, address, types, val):
+    display "server checkbox W", address, val
+def checkX(timestamp, address, types, val):
+    display "server checkbox X", address, val
+def checkY(timestamp, address, types, val):
+    display "server checkbox Y", address, val
+def checkZ(timestamp, address, types, val):
+    display "server checkbox Z", address, val
+def canvas(timestamp, address, types, x, y, status):
+    display "server canvas", address, x, y, status
+
+
+def install_generic_handler():
+    print "Listening for all OSC messages to port", osc_port
+    o2_method_new("/p3", nil, 'generic_handler', false)
+
+def generic_handler(timestamp, address, types, rest parameters):
+    display "OSC", timestamp, address, types, parameters
+
+
+def read_command_line_arguments():
+
+    if len(command_line_arguments) > 1 and
+       command_line_arguments[1] == "d" // set up for donttouchosc
+        install_donttouchosc_handlers()
+    else
+        if len(command_line_arguments) > 1 and
+           isdigit(command_line_arguments[1])
+            osc_port = int(command_line_arguments[1])
+        install_generic_handler()
+
+
+
+rslt = o2_osc_port_new("p3", osc_port, false)
+if rslt != 0 // an error occurred
+    display "in osc monitor, o2_osc_port_new returned ERROR", rslt
+
+
+def runit()
+    while true
+        o2_poll()
+        time_sleep(0.01)
+
+runit()
