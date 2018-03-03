@@ -9,7 +9,7 @@
 
 require "debug"
 require "sched"
-require "wxserpent"
+# require "wxserpent"
 require "midi-io"
 require "prefs"
 require "mididevice"

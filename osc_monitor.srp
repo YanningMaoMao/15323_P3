@@ -17,6 +17,8 @@
 # where port-number is an optional decimal integer
 
 require "debug"
+require "constants"
+require "choir"
 
 # This is the O2 application name. Only O2 processes with the same
 # application name and same local area network can communicate, so
@@ -31,6 +33,8 @@ SERVICE = "p3"
 
 # default port number that O2 listens on
 osc_port = 8001
+
+var choir
 
 # make a full path with SERVICE prefix
 def full(osc_path):
@@ -81,37 +85,88 @@ def checkZ(timestamp, address, types, val):
 def canvas(timestamp, address, types, x, y, status):
     display "server canvas", address, x, y, status
 
+def install_handlers():
+    print "Installing handlers ..."
+    # handlers for Choir
+    install_handlers_for_choir()
+    # handlers for Tracks
+    install_handlers_for_tracks()
 
-def install_generic_handler():
-    print "Listening for all OSC messages to port", osc_port
-    # register the generic handler for p3
-    o2_method_new("/p3", nil, 'generic_handler', false)
+def install_handlers_for_choir():
+    # the button that stops all sound tracks
+    o2_method_new(full("/stopAllButton"), "f", 'stop_all_button_handler', true)
+    # the button that starts all sound tracks
+    o2_method_new(full("/startAllButton"), "f", 'start_all_button_handler', true)
+    # the slider that controls the period
+    o2_method_new(full("/periodSlider"), "f", 'period_slider_handler', true)
 
-def generic_handler(timestamp, address, types, rest parameters):
-    display "OSC", timestamp, address, types, parameters
+def install_handlers_for_tracks():
+    for i = 0 to num_tracks:
+        # the button that stops the sound track
+        o2_method_new((full("/stopTrackButton") + "/" + i), "f",
+                                    'stop_track_handler', true)
+        # the button that starts the sound track
+        o2_method_new((full("/startTrackButton") + "/" + i), "f",
+                                    'start_track_handler', true)
+        # the button that raises the octave of the sound track
+        o2_method_new((full("/octaveUpTrackButton") + "/" + i), "f",
+                                    'octave_up_track_button_handler', true)
+        # the button that lowers the octave of the sound track
+        o2_method_new((full("/octaveDownTrackButton") + "/" + i), "f",
+                                    'octave_down_track_button_handler', true)
+        # the slider that controls the volume of the track
+        o2_method_new((full("/velocityTrackSlider") + "/" + i), "i",
+                                    'velocity_track_slider_handler', true)
 
 
-def initialize_o2():
-    o2_initialize(APPLICATION, false)
-    o2_service_new(SERVICE)
-    # o2_debug_flags("O")
-    o2_clock_set()
 
-def read_command_line_arguments():
+def stop_all_button_handler(timestamp, address, types, val):
+    choir.stop_all()
 
-    if len(command_line_arguments) > 1 and
-       command_line_arguments[1] == "d" // set up for donttouchosc
-        install_donttouchosc_handlers()
-    else
-        if len(command_line_arguments) > 1 and
-           isdigit(command_line_arguments[1])
-            osc_port = int(command_line_arguments[1])
-        install_generic_handler()
+def start_all_button_handler(timestamp, address, types, val):
+    choir.start_all()
+
+def period_slider_handler(timestamp, address, types, val):
+    choir.set_period()
+
+def stop_track_handler(timestamp, address, types, val):
+    # track_idx = (int)(val[0] - 1)
+    track_idx = address[len(address) - 1]
+    choir.tracks[track_idx].stop()
+
+def start_track_handler(timestamp, address, types, val):
+    # track_idx = (int)(val[0] - 1)
+    track_idx = address[len(address) - 1]
+    choir.tracks[track_idx].start()
+
+def octave_up_track_button_handler(timestamp, address, types, val):
+    # track_idx = (int)(val[0] - 1)
+    track_idx = address[len(address) - 1]
+    choir.tracks[track_idx].octave_up()
+
+def octave_down_track_button_handler(timestamp, address, types, val):
+    # track_idx = (int)(val[0] - 1)
+    track_idx = address[len(address) - 1]
+    choir.tracks[track_idx].octave_down()
+
+def velocity_track_slider_handler(timestamp, address, types, val):
+    # track_idx = (int)(val[0] - 1)
+    track_idx = address[len(address) - 1]
+    choir.tracks[track_idx].set_velocity(int(val))
+
+
+def open_port():
+
+    # use the input port number if given
+    if len(command_line_arguments) > 1 and isdigit(command_line_arguments[1])
+        osc_port = int(command_line_arguments[1])
 
     rslt = o2_osc_port_new(SERVICE, osc_port, false)
     # an error occurred
     if rslt != 0
         display "in osc monitor, o2_osc_port_new returned ERROR", rslt
+    else
+        print "Listening on port ", osc_port
 
 def runit():
     while true
@@ -119,9 +174,54 @@ def runit():
         time_sleep(0.01)
 
 def main():
-    initialize_o2()
-    read_command_line_arguments()
+
+        # initialize the scheduler
+    sched_init()
+
+    # open midi output
+    prefs = Prefs("./prefs.txt")
+    midi_devices = Midi_devices(prefs, open_later = true)
+    success = midi_devices.open_midi(latency = 10, device = 'midi_out_device')
+
+    # check output device
+    if not success
+        print "PLEASE SELECT A VALID OUTPUT DEVICE AND RESTART THIS PROGRAM"
+        return
+
+    # sets the frame
+    default_window.set_size(window_width, window_height)
+
+    # initializes the music
+    choir = Choir()
+    # initializes the canvas
+    p2Canvas = MusicCanvas(default_window, canvas_margin, canvas_margin,
+                            canvas_width, canvas_height)
+    p2Canvas.take_plugin(choir)
+
+    sched_select(vtsched)
+    sched_set_period(choir.period_slider.value())
+    # starts the music
+    sched_cause(real_delay(5),
+                choir.track_one, 'play', 0, choir.track_one.curr_pitch)
+    sched_cause(real_delay(5),
+                choir.track_two, 'play', 0, choir.track_two.curr_pitch)
+    sched_cause(real_delay(5),
+                choir.track_three, 'play', 0, choir.track_three.curr_pitch)
+    sched_cause(real_delay(5),
+                choir.track_four, 'play', 0, choir.track_four.curr_pitch)
+    # starts the animation
+    sched_cause(real_delay(5), p2Canvas, 'animate')
+
+
+    
+    o2_initialize(APPLICATION, false)
+    o2_service_new(SERVICE)
+    # o2_debug_flags("O")
+    o2_clock_set()
+    open_port()
+    install_handlers()
     # sched_o2_enabled = true
+    print "here !!!"
     runit()
 
 main()
