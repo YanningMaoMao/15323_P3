@@ -2,7 +2,7 @@
 require "constants"
 require "track"
 
-class Panel:
+class ControlPanel:
 
 	def init():
 		init_period_slider()
@@ -64,20 +64,29 @@ class Panel:
 		start_all_button.method = 'send_start_all'
 
 	# initializes the slider that controls the volume
-	def init_velocity_slider(init_x, init_y):
-		# set the parameters of the slider
-		x = margin_left
-		y = int(window_height / 2) + init_y + button_height + margin_top
-		label_name = sound_name + " " + "Velocity"
-		label_width = len(label_name) * 8
-		# draw the slider
-		velocity_slider = Labeled_slider(default_window, label_name,
-	                                     x, y, label_width + slider_width,
-	                                     slider_height, label_width,
-	                                     min_vel, max_vel, INIT_VEL,
-	                                     'linear')
-		velocity_slider.target = this
-		velocity_slider.method = 'send_set_velocity'
+	def init_velocity_slider():
+
+		lane_height = button_height + slider_height + 3 * margin_top
+		init_x = margin_left
+		init_y = button_height + slider_height + 3 * margin_top
+
+		for i = 0 to num_tracks:
+			# set the parameters of the slider
+			x = margin_left
+			y = int(window_height / 2) + init_y + button_height + margin_top
+			label_name = "Sound" + " " + str(i + 1) + " " + "Velocity"
+			label_width = len(label_name) * 8
+			# draw the slider
+			velocity_slider = Labeled_slider(default_window, label_name,
+		                                     x, y, label_width + slider_width,
+		                                     slider_height, label_width,
+		                                     min_vel, max_vel, INIT_VEL,
+		                                     'linear')
+			velocity_slider.target = this
+			velocity_slider.method = 'send_set_velocity'			
+
+			# update y position
+			init_y = init_y + lane_height
 
 	# initializes the buttons
 	def init_track_buttons():
@@ -86,11 +95,11 @@ class Panel:
 		init_x = margin_left
 		init_y = button_height + slider_height + 3 * margin_top
 
-		for i = 1 to num_tracks:
+		for i = 0 to num_tracks:
 			# initialize stop button
 			x = margin_left
 			y = int(window_height / 2) + init_y + margin_top
-			button_name = "Stop " + sound_name
+			button_name = "Stop " + "Sound" + " " + str(i + 1)
 			button_width = len(button_name) * 10
 			stop_button = Button(0, button_name, x, y,
 		                                button_width, button_height)
@@ -100,7 +109,7 @@ class Panel:
 
 			# initialize start button
 			x = x + button_width + margin_left
-			button_name = "Start " + sound_name
+			button_name = "Start " + "Sound" + " " + str(i + 1)
 			button_width = len(button_name) * 10
 			start_button = Button(0, button_name, x, y,
 									button_width, button_height)
@@ -132,28 +141,33 @@ class Panel:
 			init_y = init_y + lane_height
 
 	def send_stop_all(obj, event, x, y):
-		send_afloat("/cmsip/stopAllButton", [x])
+		send_afloat("/stopAllButton", [x])
 
 	def send_start_all(obj, event, x, y):
-		send_afloat("/cmsip/startAllButton", [x])
+		send_afloat("/startAllButton", [x])
 
-	def send_set_period(obj, event, x, y):
-		send_afloat("/cmsip/periodSlider", [x])
+	def send_set_period(obj, x):
+		send_afloat("/periodSlider", [x])
 
 	def send_stop_track(obj, event, x, y):
-		send_afloat("/cmsip/stopTrackButton", [obj.id])
+		display "obj.id", obj.id
+		send_afloat("/stopTrackButton" + "/" + str(obj.id), [x])
 
 	def send_start_track(obj, event, x, y):
-		send_afloat("/cmsip/startTrackButton", [obj.id])
+		display "obj.id", obj.id
+		send_afloat("/startTrackButton" + "/" + str(obj.id), [x])
 
 	def send_octave_up(obj, event, x, y):
-		send_afloat("/cmsip/octaveUpTrackButton", [obj.id])
+		display "obj.id", obj.id
+		send_afloat("/octaveUpTrackButton" + "/" + str(obj.id), [x])
 
 	def send_octave_down(obj, event, x, y):
-		send_afloat("/cmsip/octaveDownTrackButton", [obj.id])
+		display "obj.id", obj.id
+		send_afloat("/octaveDownTrackButton" + "/" + str(obj.id), [x])
 
-	def send_set_velocity(obj, event, x, y):
-		send_afloat("/cmsip/velocityTrackSlider", [obj.id, x])
+	def send_set_velocity(obj, x):
+		display "obj.id", obj.id
+		send_afloat("/velocityTrackSlider" + "/" + str(obj.id), [x])
 
 
 

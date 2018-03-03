@@ -10,6 +10,7 @@
 
 require "track"
 require "choir"
+require "control_panel"
 require "debug"
 require "wxserpent"
 require "constants"
@@ -23,7 +24,7 @@ class Client:
 	    o2_initialize(APPLICATION, false)
 	    o2_clock_set()
 	    o2_osc_delegate(CLIENT_SERVICE, "localhost", osc_port, false)
-		panel = Panel()
+	    panel = ControlPanel()
 
 	def timer_callback():
 	    o2_poll()

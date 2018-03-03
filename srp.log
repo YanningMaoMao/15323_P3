@@ -1,6 +1,6 @@
 debug.srp created srp.log for error report...
 runtime exception handler called
-exception is: [31;49msubscript out of bounds: -1[39;49m
+exception is: [31;49mparameter count mismatch[39;49m
 frame variables: {}
 frame pc: -1
 frame method: <callin_method>
@@ -10,107 +10,50 @@ Debugger invoked.
 -----------------------------------------------------
 Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
 -----------------------------------------------------
-Method [32;49m<immediate command 0>[39;49m in class [34;49mnil[39;49m, char 11 in <stdin>
+Method [32;49mwxs_handler[39;49m in class [34;49mnil[39;49m, char 892 in file 
+    /Users/YanningMao1/serpent/wxslib/wxserpent.srp
+Frame variables: {'id': 2, 'event': 18, 'x': 182, 'y': 0, 'obj': <obj@0x117d69020>}
+  29:             return obj.handle(event, x, y)
+                                   ^
 -----------------------------------------------------
-Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
-[31;49msubscript out of bounds: -1[39;49m
-1> len (global) variable syntax error: "(s)
-"
-1> length (global) variable syntax error: "(s)
-"
-1> s (global) runtime exception handler called
-exception is: [31;49mtype error, expected Object[39;49m
-frame variables: {}
-frame pc: -1
-frame method: <callin_method>
-frame class: nil
-
-Debugger invoked.
------------------------------------------------------
-Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
------------------------------------------------------
-Method [32;49m<immediate command 0>[39;49m in class [34;49mnil[39;49m, char 11 in <stdin>
------------------------------------------------------
-Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
------------------------------------------------------
-Method [32;49mruntime_exception[39;49m in class [34;49mnil[39;49m, char 8092 in file 
-    /Users/YanningMao1/serpent/lib/debug.srp
-Frame variables: {'msg': "subscript out of bounds: -1", 'frame': <frame@0x103f0eae0>}
- 260:     debugger(msg, frame)
-                  ^
------------------------------------------------------
-Method [32;49mdebugger[39;49m in class [34;49mnil[39;49m, char 4473 in file 
-    /Users/YanningMao1/serpent/lib/debug.srp
-Frame variables: {'msg': "subscript out of bounds: -1", 'frame': <frame@0x103f0eae0>, 'temp': <file@0x103f007f8>, 'frames': [], 'curframe': <frame@0x103f0eae0>, 'c': "s"}
- 151:             dbg_variable(curframe)
+Method [32;49mhandle[39;49m in class [34;49mSlider[39;49m, char 12098 in file 
+    /Users/YanningMao1/serpent/wxslib/wxserpent.srp
+Frame variables: {'event': 18, 'x': 182, 'y': 0}
+ 436:             super.handle(WXS_SLIDER_UPDATED, x, 0)
                               ^
 -----------------------------------------------------
-Method [32;49mdbg_variable[39;49m in class [34;49mnil[39;49m, char 6836 in file 
-    /Users/YanningMao1/serpent/lib/debug.srp
-Frame variables: {'f': <frame@0x103f0eae0>, 'expr': <obj@0x103f196c0>, 'name': "s", 'symbol': 's', 'vars': {}, 'value': "abc", 'got_value': nil, 'ob': nil, 'more': ".", 'field': nil}
- 225:             vars = object_variables(value)
-                                                ^
+Method [32;49mhandle[39;49m in class [34;49mControl[39;49m, char 4052 in file 
+    /Users/YanningMao1/serpent/wxslib/wxserpent.srp
+Frame variables: {'event': 18, 'x': 182, 'y': 0}
+ 134:         if handle_target_method(event, x, y, target, method)
+                                     ^
+-----------------------------------------------------
+Method [32;49mhandle_target_method[39;49m in class [34;49mControl[39;49m, char 4527 in file 
+    /Users/YanningMao1/serpent/wxslib/wxserpent.srp
+Frame variables: {'event': 18, 'x': 182, 'y': 0, 'trgt': <obj@0x117d68b70>, 'mthd': 'slider_changed', 'meth': nil, 'i': nil}
+ 147:             dispatch(event, x, y, trgt, mthd)
+                          ^
+-----------------------------------------------------
+Method [32;49mdispatch[39;49m in class [34;49mControl[39;49m, char 4749 in file 
+    /Users/YanningMao1/serpent/wxslib/wxserpent.srp
+Frame variables: {'event': 18, 'x': 182, 'y': 0, 'trgt': <obj@0x117d68b70>, 'mthd': 'slider_changed'}
+ 155:             send(trgt, mthd, this, event, x, y)
+                      ^
+-----------------------------------------------------
+Method [32;49mslider_changed[39;49m in class [34;49mLabeled_slider[39;49m, char 4795 in file 
+    /Users/YanningMao1/serpent/wxslib/slider.srp
+Frame variables: {'source': <obj@0x117d69020>, 'event': 18, 'x': 182, 'y': 0, 'value': 0.203804}
+ 142:         set_value(value, from_slider = true)
+                       ^
+-----------------------------------------------------
+Method [32;49mset_value[39;49m in class [34;49mLabeled_slider[39;49m, char 6273 in file 
+    /Users/YanningMao1/serpent/wxslib/slider.srp
+Frame variables: {'x': 0.203804, 'from_slider': 't', 'from_number': nil, 'act': nil, 's': nil}
+ 188:                 send(target, method, this, val)
+                          ^
 -----------------------------------------------------
 Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
-[31;49mtype error, expected Object[39;49m
-2> s (global)  = abc
-2> s (global) runtime exception handler called
-exception is: [31;49mtype error, expected Object[39;49m
-frame variables: {}
-frame pc: -1
-frame method: <callin_method>
-frame class: nil
-
-Debugger invoked.
------------------------------------------------------
-Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
------------------------------------------------------
-Method [32;49m<immediate command 0>[39;49m in class [34;49mnil[39;49m, char 11 in <stdin>
------------------------------------------------------
-Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
------------------------------------------------------
-Method [32;49mruntime_exception[39;49m in class [34;49mnil[39;49m, char 8092 in file 
-    /Users/YanningMao1/serpent/lib/debug.srp
-Frame variables: {'msg': "subscript out of bounds: -1", 'frame': <frame@0x103f0eae0>}
- 260:     debugger(msg, frame)
-                  ^
------------------------------------------------------
-Method [32;49mdebugger[39;49m in class [34;49mnil[39;49m, char 4473 in file 
-    /Users/YanningMao1/serpent/lib/debug.srp
-Frame variables: {'msg': "subscript out of bounds: -1", 'frame': <frame@0x103f0eae0>, 'temp': <file@0x103f007f8>, 'frames': [], 'curframe': <frame@0x103f0eae0>, 'c': "s"}
- 151:             dbg_variable(curframe)
-                              ^
------------------------------------------------------
-Method [32;49mdbg_variable[39;49m in class [34;49mnil[39;49m, char 6836 in file 
-    /Users/YanningMao1/serpent/lib/debug.srp
-Frame variables: {'f': <frame@0x103f0eae0>, 'expr': <obj@0x103f196c0>, 'name': "s", 'symbol': 's', 'vars': {}, 'value': "abc", 'got_value': nil, 'ob': nil, 'more': ".", 'field': nil}
- 225:             vars = object_variables(value)
-                                                ^
------------------------------------------------------
-Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
------------------------------------------------------
-Method [32;49mruntime_exception[39;49m in class [34;49mnil[39;49m, char 8092 in file 
-    /Users/YanningMao1/serpent/lib/debug.srp
-Frame variables: {'msg': "type error, expected Object", 'frame': <frame@0x103f19a60>}
- 260:     debugger(msg, frame)
-                  ^
------------------------------------------------------
-Method [32;49mdebugger[39;49m in class [34;49mnil[39;49m, char 4473 in file 
-    /Users/YanningMao1/serpent/lib/debug.srp
-Frame variables: {'msg': "type error, expected Object", 'frame': <frame@0x103f19a60>, 'temp': <file@0x103f00828>, 'frames': [], 'curframe': <frame@0x103f19a60>, 'c': "s"}
- 151:             dbg_variable(curframe)
-                              ^
------------------------------------------------------
-Method [32;49mdbg_variable[39;49m in class [34;49mnil[39;49m, char 6836 in file 
-    /Users/YanningMao1/serpent/lib/debug.srp
-Frame variables: {'f': <frame@0x103f19a60>, 'expr': <obj@0x103f180b0>, 'name': "s", 'symbol': 's', 'vars': {}, 'value': "abc", 'got_value': nil, 'ob': nil, 'more': ".", 'field': nil}
- 225:             vars = object_variables(value)
-                                                ^
------------------------------------------------------
-Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
-[31;49mtype error, expected Object[39;49m
-3> len (global) variable syntax error: "(s)
-"
-3> length (global) variable syntax error: "(s)
-"
-3> 
+[31;49mparameter count mismatch[39;49m
+1> Exiting ...
+wxs_handler undefined
+wxs_handler undefined
