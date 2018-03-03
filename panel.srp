@@ -1,0 +1,161 @@
+
+require "constants"
+require "track"
+
+class Panel:
+
+	def init():
+		init_period_slider()
+		init_choir_buttons()
+		init_velocity_slider()
+		init_track_buttons()
+
+	def send_afloat(path, val):
+	    # display val
+	    o2_send_start()
+	    for v in val:
+	        if not v
+	            v = 0
+	        elif v == true
+	            v = 1
+	        o2_add_float(v)
+	    o2_send_finish(0, "/" + CLIENT_SERVICE + path, false)
+
+
+	# draw the slider that controls the period of the music as a whole
+	def init_period_slider():
+		# calculate slider parameters
+		x = margin_left
+		y = int(window_height / 2 + 30)
+		label_name = "Period"
+		label_width = len(label_name) * 8
+		# set the slider
+		period_slider = Labeled_slider(default_window, label_name,
+	                                    x, y, slider_width + label_width,
+	                                    slider_height, label_width,
+	                                    min_period, max_period, init_period,
+	                                    'exponential')
+		period_slider.target = this
+		period_slider.method = 'send_set_period'
+
+	# initializes the buttons
+	def init_choir_buttons():
+
+		# calculate parameters for button position
+		button_x = margin_left
+		button_y = int(window_height / 2 + margin_left)
+		button_name = "Stop All"
+		button_width = len(button_name) * 10
+		button_height = 25
+
+		# set the stop all button
+		stop_all_button = Button(0, button_name, button_x, button_y,
+									button_width, button_height)
+		stop_all_button.target = this
+		stop_all_button.method = 'send_stop_all'
+
+		# set the start all button
+		button_x = button_x + button_width + margin_left
+		button_name = "Start All"
+		button_width = len(button_name) * 10
+		start_all_button = Button(0, button_name, button_x, button_y,
+										button_width, button_height)
+		start_all_button.target = this
+		start_all_button.method = 'send_start_all'
+
+	# initializes the slider that controls the volume
+	def init_velocity_slider(init_x, init_y):
+		# set the parameters of the slider
+		x = margin_left
+		y = int(window_height / 2) + init_y + button_height + margin_top
+		label_name = sound_name + " " + "Velocity"
+		label_width = len(label_name) * 8
+		# draw the slider
+		velocity_slider = Labeled_slider(default_window, label_name,
+	                                     x, y, label_width + slider_width,
+	                                     slider_height, label_width,
+	                                     min_vel, max_vel, INIT_VEL,
+	                                     'linear')
+		velocity_slider.target = this
+		velocity_slider.method = 'send_set_velocity'
+
+	# initializes the buttons
+	def init_track_buttons():
+
+		lane_height = button_height + slider_height + 3 * margin_top
+		init_x = margin_left
+		init_y = button_height + slider_height + 3 * margin_top
+
+		for i = 1 to num_tracks:
+			# initialize stop button
+			x = margin_left
+			y = int(window_height / 2) + init_y + margin_top
+			button_name = "Stop " + sound_name
+			button_width = len(button_name) * 10
+			stop_button = Button(0, button_name, x, y,
+		                                button_width, button_height)
+			stop_button.id = i
+			stop_button.target = this
+			stop_button.method = 'send_stop_track'
+
+			# initialize start button
+			x = x + button_width + margin_left
+			button_name = "Start " + sound_name
+			button_width = len(button_name) * 10
+			start_button = Button(0, button_name, x, y,
+									button_width, button_height)
+			start_button.id = i
+			start_button.target = this
+			start_button.method = 'send_start_track'
+
+			# initialize octave up
+			x = x + button_width + margin_left
+			button_name = "Octave Up"
+			button_width = len(button_name) * 10
+			octave_up_button = Button(0, button_name, x, y,
+		                                button_width, button_height)
+			octave_up_button.id = i
+			octave_up_button.target = this
+			octave_up_button.method = 'send_octave_up'
+
+			# initialize octave down
+			x = x + button_width + margin_left
+			button_name = "Octave Down"
+			button_width = len(button_name) * 10
+			octave_down_button = Button(0, button_name, x, y,
+		                                    button_width, button_height)
+			octave_down_button.id = i
+			octave_down_button.target = this
+			octave_down_button.method = 'send_octave_down'
+
+			# update y position
+			init_y = init_y + lane_height
+
+	def send_stop_all(obj, event, x, y):
+		send_afloat("/cmsip/stopAllButton", [x])
+
+	def send_start_all(obj, event, x, y):
+		send_afloat("/cmsip/startAllButton", [x])
+
+	def send_set_period(obj, event, x, y):
+		send_afloat("/cmsip/periodSlider", [x])
+
+	def send_stop_track(obj, event, x, y):
+		send_afloat("/cmsip/stopTrackButton", [obj.id])
+
+	def send_start_track(obj, event, x, y):
+		send_afloat("/cmsip/startTrackButton", [obj.id])
+
+	def send_octave_up(obj, event, x, y):
+		send_afloat("/cmsip/octaveUpTrackButton", [obj.id])
+
+	def send_octave_down(obj, event, x, y):
+		send_afloat("/cmsip/octaveDownTrackButton", [obj.id])
+
+	def send_set_velocity(obj, event, x, y):
+		send_afloat("/cmsip/velocityTrackSlider", [obj.id, x])
+
+
+
+
+

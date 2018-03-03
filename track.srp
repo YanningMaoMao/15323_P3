@@ -33,6 +33,9 @@ require "constants"
 # The class Track that represents a sound track
 class Track:
 
+    # the id of the tack
+    var track_id
+
     # current pitch and current velocity of the track
     var curr_pitch
     var curr_vel
@@ -50,18 +53,19 @@ class Track:
     var pitches
 
     # buttons and sliders that control the track
-    var velocity_slider     # controls the volume
-    var stop_button         # stops the track
-    var start_button        # starts the track
-    var octave_up_button    # raises one octave
-    var octave_down_button  # lowers one octave
+    # var velocity_slider     # controls the volume
+    # var stop_button         # stops the track
+    # var start_button        # starts the track
+    # var octave_up_button    # raises one octave
+    # var octave_down_button  # lowers one octave
 
 
     # initializes a Track object, initializes the rhythm, pitches, sound effect
     # information, the sliders and the buttons
-    def init(base_pitch, name, num, chann, init_x, init_y):
+    def init(id, base_pitch, name, num, chann):
 
         # the the parameters of the track sound
+        track_id = id
         sound_name = name
         sound_num = num
         sound_chann = chann
@@ -89,81 +93,22 @@ class Track:
         for i = 0 to len(sound_one_delta_pitches):
             pitches.insert(i, base_pitch + sound_one_delta_pitches[i])
 
-        # set the velocity slider
-        init_velocity_slider(init_x, init_y)
-        # set the start, stop and octave control buttons
-        init_buttons(init_x, init_y)
-
         # set current velocity to initial velocity
-        curr_vel = int(velocity_slider.value())
+        curr_vel = INIT_VEL
         # set current pitch to a random initial pitch
         curr_pitch = pr_choice(pitches)
 
 
-    # initializes the slider that controls the volume
-    def init_velocity_slider(init_x, init_y):
-        # set the parameters of the slider
-        x = margin_left
-        y = int(window_height / 2) + init_y + button_height + margin_top
-        label_name = sound_name + " " + "Velocity"
-        label_width = len(label_name) * 8
-        # draw the slider
-        velocity_slider = Labeled_slider(default_window, label_name,
-                                        x, y, label_width + slider_width,
-                                        slider_height, label_width,
-                                        min_vel, max_vel, init_vel,
-                                        'linear')
-        velocity_slider.target = this
-
-    # initializes the buttons
-    def init_buttons(init_x, init_y):
-        # initialize stop button
-        x = margin_left
-        y = int(window_height / 2) + init_y + margin_top
-        button_name = "Stop " + sound_name
-        button_width = len(button_name) * 10
-        stop_button = Button(0, button_name, x, y,
-                                button_width, button_height)
-        stop_button.target = this
-        stop_button.method = 'stop'
-
-        # initialize start button
-        x = x + button_width + margin_left
-        button_name = "Start " + sound_name
-        button_width = len(button_name) * 10
-        start_button = Button(0, button_name, x, y,
-                                button_width, button_height)
-        start_button.target = this
-        start_button.method = 'start'
-
-        # initialize octave up
-        x = x + button_width + margin_left
-        button_name = "Octave Up"
-        button_width = len(button_name) * 10
-        octave_up_button = Button(0, button_name, x, y,
-                                button_width, button_height)
-        octave_up_button.target = this
-        octave_up_button.method = 'octave_up'
-
-        # initialize octave down
-        x = x + button_width + margin_left
-        button_name = "Octave Down"
-        button_width = len(button_name) * 10
-        octave_down_button = Button(0, button_name, x, y,
-                                    button_width, button_height)
-        octave_down_button.target = this
-        octave_down_button.method = 'octave_down'
-
     # stops the track
-    def stop(rest ignore):
+    def stop():
         track_playing = false
 
     # starts the track
-    def start(rest ignore):
+    def start():
         track_playing = true
 
     # raise one octave if valid
-    def octave_up(rest ignore):
+    def octave_up():
         # find highest pitch
         highest_pitch = pitches[0]
         for i = 1 to len(pitches):
@@ -180,7 +125,7 @@ class Track:
             return
 
     # lower one octave if valid
-    def octave_down(rest ignore):
+    def octave_down():
         # find highest pitch
         lowest_pitch = pitches[0]
         for i = 1 to len(pitches):
@@ -196,6 +141,10 @@ class Track:
             pitches = new_pitches
             return
 
+    # sets the volume of the track
+    def set_velocity(v):
+        curr_vel = v
+
     # continuously play a random note from the set of pitches for this track
     # according to the rhythm
     def play(rhythm_idx, pitch):
@@ -204,7 +153,6 @@ class Track:
         # stop last note
         midi_out.note_on(sound_chann, pitch, 0)
         
-        curr_vel = int(velocity_slider.value())
         curr_pitch = pitch
 
         # play the note iff the track is playing

@@ -66,7 +66,7 @@ def main():
     choir = Choir()
     # initializes the canvas
     p2Canvas = MusicCanvas(default_window, canvas_margin, canvas_margin,
-                         canvas_width, canvas_height)
+                            canvas_width, canvas_height)
     p2Canvas.take_plugin(choir)
 
     sched_select(vtsched)

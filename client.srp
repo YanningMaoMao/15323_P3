@@ -1,0 +1,36 @@
+# donttouchosc -- a simple control panel that sends OSC messages
+#
+# Gus Xia & Roger Dannenberg
+# Feb 14, 2014
+# modified Feb 2017 to use O2
+
+# This program creates a graphical interface that sends OSC messages
+# to LOCALHOST (the local machine) on port 8001.
+# See the Project 3 handout for message details.
+
+require "track"
+require "choir"
+require "debug"
+require "wxserpent"
+require "constants"
+
+class Client:
+
+	var panel
+
+	# osc client
+	def init():
+	    o2_initialize(APPLICATION, false)
+	    o2_clock_set()
+	    o2_osc_delegate(CLIENT_SERVICE, "localhost", osc_port, false)
+		panel = Panel()
+
+	def timer_callback():
+	    o2_poll()
+
+	def run():
+		wxs_timer_start(5, 'timer_callback')
+
+
+client = Client()
+client.run()

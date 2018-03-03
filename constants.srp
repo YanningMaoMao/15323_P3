@@ -17,6 +17,19 @@ require "slider"
 require "prob"
 
 
+# This is the O2 application name. Only O2 processes with the same
+# application name and same local area network can communicate, so
+# we make the application name easy to change.
+APPLICATION = "p3"
+
+# service name for the server
+SERVER_SERVICE = "p3"
+CLIENT_SERVICE = "osc"
+
+# default port number that O2 listens on
+osc_port = 8001
+
+
 # ----------------   Painting Parameters   --------------- #
 
 
@@ -33,8 +46,10 @@ slider_height = 20
 # width and height of the frame
 window_width = 640
 window_height = 600
+
 # margin between canvas and the frame
 canvas_margin = 3
+
 # width and height of the canvas
 canvas_width = window_width - 2 * canvas_margin
 canvas_height = int(window_height / 2)
@@ -55,7 +70,7 @@ min_vel = 1
 # maximum velocity
 max_vel = 120
 # initial velocity
-init_vel = 100
+INIT_VEL = 100
 
 
 # -----------------   Pitch Parameters   ----------------- #

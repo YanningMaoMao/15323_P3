@@ -10,14 +10,35 @@ Debugger invoked.
 -----------------------------------------------------
 Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
 -----------------------------------------------------
-Method [32;49m<immediate command 0>[39;49m in class [34;49mnil[39;49m, char 326 in file 
-    /Users/YanningMao1/Desktop/15323/Project/P3/donttouchosc.srp
+Method [32;49m<immediate command 0>[39;49m in class [34;49mnil[39;49m, char 1689 in file 
+    /Users/YanningMao1/Desktop/15323/Project/P3/server.srp
+  41: require "choir"
+      ^
+-----------------------------------------------------
+Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
+-----------------------------------------------------
+Method [32;49m<immediate command 1>[39;49m in class [34;49mnil[39;49m, char 380 in file 
+    /Users/YanningMao1/Desktop/15323/Project/P3/choir.srp
+  15: require "track"
+      ^
+-----------------------------------------------------
+Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
+-----------------------------------------------------
+Method [32;49m<immediate command 2>[39;49m in class [34;49mnil[39;49m, char 1115 in file 
+    /Users/YanningMao1/Desktop/15323/Project/P3/track.srp
+  30: require "constants"
+      ^
+-----------------------------------------------------
+Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
+-----------------------------------------------------
+Method [32;49m<immediate command 3>[39;49m in class [34;49mnil[39;49m, char 232 in file 
+    /Users/YanningMao1/Desktop/15323/Project/P3/constants.srp
   12: require "wxserpent"
       ^
 -----------------------------------------------------
 Method [32;49m<callin_method>[39;49m in class [34;49mnil[39;49m
 -----------------------------------------------------
-Method [32;49m<immediate command 1>[39;49m in class [34;49mnil[39;49m, char 128 in file 
+Method [32;49m<immediate command 4>[39;49m in class [34;49mnil[39;49m, char 128 in file 
     /Users/YanningMao1/serpent/wxslib/wxserpent.srp
    5: wxs_event_names = { WXS_MOVE: 'MOVE', 
                           ^
