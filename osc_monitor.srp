@@ -17,6 +17,7 @@
 # where port-number is an optional decimal integer
 
 require "debug"
+require "canvas"
 require "constants"
 require "choir"
 
@@ -103,19 +104,19 @@ def install_handlers_for_choir():
 def install_handlers_for_tracks():
     for i = 0 to num_tracks:
         # the button that stops the sound track
-        o2_method_new((full("/stopTrackButton") + "/" + i), "f",
+        o2_method_new((full("/stopTrackButton") + "/" + str(i)), "f",
                                     'stop_track_handler', true)
         # the button that starts the sound track
-        o2_method_new((full("/startTrackButton") + "/" + i), "f",
+        o2_method_new((full("/startTrackButton") + "/" + str(i)), "f",
                                     'start_track_handler', true)
         # the button that raises the octave of the sound track
-        o2_method_new((full("/octaveUpTrackButton") + "/" + i), "f",
+        o2_method_new((full("/octaveUpTrackButton") + "/" + str(i)), "f",
                                     'octave_up_track_button_handler', true)
         # the button that lowers the octave of the sound track
-        o2_method_new((full("/octaveDownTrackButton") + "/" + i), "f",
+        o2_method_new((full("/octaveDownTrackButton") + "/" + str(i)), "f",
                                     'octave_down_track_button_handler', true)
         # the slider that controls the volume of the track
-        o2_method_new((full("/velocityTrackSlider") + "/" + i), "i",
+        o2_method_new((full("/velocityTrackSlider") + "/" + str(i)), "i",
                                     'velocity_track_slider_handler', true)
 
 
@@ -155,6 +156,55 @@ def velocity_track_slider_handler(timestamp, address, types, val):
     choir.tracks[track_idx].set_velocity(int(val))
 
 
+
+
+def install_donttouchosc_handlers():
+    print "Installing handlers for donttouchosc.srp messages"
+    o2_method_new(full("/cmsip/buttonA"), "f", 'buttonA', true)
+    o2_method_new(full("/cmsip/buttonB"), "f", 'buttonB', true)
+    o2_method_new(full("/cmsip/buttonC"), "f", 'buttonC', true)
+    o2_method_new(full("/cmsip/buttonD"), "f", 'buttonD', true)
+    o2_method_new(full("/cmsip/sliderA"), "f", 'sliderA', true)
+    o2_method_new(full("/cmsip/sliderB"), "f", 'sliderB', true)
+    o2_method_new(full("/cmsip/sliderC"), "f", 'sliderC', true)
+    o2_method_new(full("/cmsip/sliderD"), "f", 'sliderD', true)
+    o2_method_new(full("/cmsip/checkW"), "f", 'checkW', true)
+    o2_method_new(full("/cmsip/checkX"), "f", 'checkX', true)
+    o2_method_new(full("/cmsip/checkY"), "f", 'checkY', true)
+    o2_method_new(full("/cmsip/checkZ"), "f", 'checkZ', true)
+    o2_method_new(full("/cmsip/canvas"), "fff", 'canvas', true)
+
+# handler functions for donttouchosc messages
+def buttonA(timestamp, address, types, val):
+    display "server button A", address, val
+def buttonB(timestamp, address, types, val):
+    display "server button B", address, val
+def buttonC(timestamp, address, types, val):
+    display "server button C", address, val    
+def buttonD(timestamp, address, types, val):
+    display "server button D", address, val
+def sliderA(timestamp, address, types, val):
+    display "server slider A", address, val
+def sliderB(timestamp, address, types, val):
+    display "server slider B", address, val
+def sliderC(timestamp, address, types, val):
+    display "server slider C", address, val    
+def sliderD(timestamp, address, types, val):
+    display "server slider D", address, val
+def checkW(timestamp, address, types, val):
+    display "server checkbox W", address, val
+def checkX(timestamp, address, types, val):
+    display "server checkbox X", address, val
+def checkY(timestamp, address, types, val):
+    display "server checkbox Y", address, val
+def checkZ(timestamp, address, types, val):
+    display "server checkbox Z", address, val
+def canvas(timestamp, address, types, x, y, status):
+    display "server canvas", address, x, y, status
+
+
+
+
 def open_port():
 
     # use the input port number if given
@@ -175,7 +225,19 @@ def runit():
 
 def main():
 
-        # initialize the scheduler
+    
+    o2_initialize(APPLICATION, false)
+    o2_service_new(SERVICE)
+    # o2_debug_flags("O")
+    o2_clock_set()
+    open_port()
+    install_handlers()
+    install_donttouchosc_handlers()
+    sched_o2_enabled = true
+    # runit()
+
+
+    # initialize the scheduler
     sched_init()
 
     # open midi output
@@ -199,7 +261,7 @@ def main():
     p2Canvas.take_plugin(choir)
 
     sched_select(vtsched)
-    sched_set_period(choir.period_slider.value())
+    sched_set_period(init_period)
     # starts the music
     sched_cause(real_delay(5),
                 choir.track_one, 'play', 0, choir.track_one.curr_pitch)
@@ -213,15 +275,5 @@ def main():
     sched_cause(real_delay(5), p2Canvas, 'animate')
 
 
-    
-    o2_initialize(APPLICATION, false)
-    o2_service_new(SERVICE)
-    # o2_debug_flags("O")
-    o2_clock_set()
-    open_port()
-    install_handlers()
-    # sched_o2_enabled = true
-    print "here !!!"
-    runit()
 
 main()

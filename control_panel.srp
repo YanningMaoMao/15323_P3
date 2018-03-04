@@ -26,7 +26,8 @@ class ControlPanel:
 	def init_period_slider():
 		# calculate slider parameters
 		x = margin_left
-		y = int(window_height / 2 + 30)
+		# y = int(window_height / 2 + 30)
+		y = 30
 		label_name = "Period"
 		label_width = len(label_name) * 8
 		# set the slider
@@ -43,7 +44,8 @@ class ControlPanel:
 
 		# calculate parameters for button position
 		button_x = margin_left
-		button_y = int(window_height / 2 + margin_left)
+		# button_y = int(window_height / 2 + margin_left)
+		button_y = margin_left
 		button_name = "Stop All"
 		button_width = len(button_name) * 10
 		button_height = 25
@@ -73,7 +75,8 @@ class ControlPanel:
 		for i = 0 to num_tracks:
 			# set the parameters of the slider
 			x = margin_left
-			y = int(window_height / 2) + init_y + button_height + margin_top
+			# y = int(window_height / 2) + init_y + button_height + margin_top
+			y = init_y + button_height + margin_top
 			label_name = "Sound" + " " + str(i + 1) + " " + "Velocity"
 			label_width = len(label_name) * 8
 			# draw the slider
@@ -82,6 +85,7 @@ class ControlPanel:
 		                                     slider_height, label_width,
 		                                     min_vel, max_vel, INIT_VEL,
 		                                     'linear')
+			velocity_slider.id = i
 			velocity_slider.target = this
 			velocity_slider.method = 'send_set_velocity'			
 
@@ -98,7 +102,8 @@ class ControlPanel:
 		for i = 0 to num_tracks:
 			# initialize stop button
 			x = margin_left
-			y = int(window_height / 2) + init_y + margin_top
+			# y = int(window_height / 2) + init_y + margin_top
+			y = init_y + margin_top
 			button_name = "Stop " + "Sound" + " " + str(i + 1)
 			button_width = len(button_name) * 10
 			stop_button = Button(0, button_name, x, y,
