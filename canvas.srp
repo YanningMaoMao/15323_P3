@@ -60,7 +60,9 @@ class MusicCanvas (Canvas):
         # calculate the parameters for drawing
         rec_margin = 15
         rec_height = 3
-        rec_width = (window_width - 2 * canvas_margin - (num_tracks + 1) * rec_margin) / num_tracks
+        total_margin = (num_tracks + 1) * rec_margin
+        rec_region = (window_width - 2 * canvas_margin - total_margin)
+        rec_width =  rec_region / num_tracks
         rec_x = canvas_margin + rec_margin
         text_x = rec_x + rec_width / 4
         text_y = window_height / 2 - 4 * canvas_margin - margin_top

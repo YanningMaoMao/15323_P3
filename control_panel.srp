@@ -1,15 +1,33 @@
-
+# File : control_panel.srp
+# Author : Yanning Mao (yanningm) <yanningm@andrew.cmu.edu>
+# Description :
+# This file contains the control panel used by the Client to control the music
+# played at the server side.
+#
 require "constants"
 require "track"
 
+# This class is the control panel used by the Client to control the music
+# played at the Server side.
+# The control panel contains:
+# + A slider to control the tempo of the music
+# + A start button that starts the music
+# + A stop button that stops the music
+# + A slider for each sound track that changes the volume of the track
+# + A start button for each sound track that starts the track
+# + A stop button for each sound track that stops the track
+# + An octave up button for each sound track to raise the octave of the track
+# + An octave down button for each sound track to lower the octave of the track
 class ControlPanel:
 
+	# initializes the sliders and buttons
 	def init():
 		init_period_slider()
 		init_choir_buttons()
 		init_velocity_slider()
 		init_track_buttons()
 
+	# packs the message to be sent
 	def send_afloat(path, val):
 	    # display val
 	    o2_send_start()
@@ -20,7 +38,6 @@ class ControlPanel:
 	            v = 1
 	        o2_add_float(v)
 	    o2_send_finish(0, "/" + CLIENT_SERVICE + path, false)
-
 
 	# draw the slider that controls the period of the music as a whole
 	def init_period_slider():
@@ -145,31 +162,39 @@ class ControlPanel:
 			# update y position
 			init_y = init_y + lane_height
 
+	# sends the stop all message to the Server
 	def send_stop_all(obj, event, x, y):
 		send_afloat("/stopAllButton", [x])
 
+	# sends the start all message to the Server
 	def send_start_all(obj, event, x, y):
 		send_afloat("/startAllButton", [x])
 
+	# sends the set period message to the Server
 	def send_set_period(obj, x):
 		send_afloat("/periodSlider", [x])
 
+	# sends the message that stops the sound track
 	def send_stop_track(obj, event, x, y):
 		display "obj.id", obj.id
 		send_afloat("/stopTrackButton" + "/" + str(obj.id), [x])
 
+	# sends the message that starts the sound track
 	def send_start_track(obj, event, x, y):
 		display "obj.id", obj.id
 		send_afloat("/startTrackButton" + "/" + str(obj.id), [x])
 
+	# sends the messages that raises the octave of the sound track
 	def send_octave_up(obj, event, x, y):
 		display "obj.id", obj.id
 		send_afloat("/octaveUpTrackButton" + "/" + str(obj.id), [x])
 
+	# sends the message that lowers the octave of the sound track
 	def send_octave_down(obj, event, x, y):
 		display "obj.id", obj.id
 		send_afloat("/octaveDownTrackButton" + "/" + str(obj.id), [x])
 
+	# sends the message that sets the volume of the sound track
 	def send_set_velocity(obj, x):
 		display "obj.id", obj.id
 		send_afloat("/velocityTrackSlider" + "/" + str(obj.id), [x])
