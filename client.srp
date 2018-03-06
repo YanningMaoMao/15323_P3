@@ -19,8 +19,8 @@ require "constants"
 class Client:
 
     # ---------------- Variables ---------------- #
-
-	var panel
+    
+    var panel
 
     # ---------------- Methods ---------------- #
 
@@ -28,25 +28,27 @@ class Client:
         # display val
         o2_send_start()
         for v in val:
-            if not v
+            if not v:
                 v = 0
-            elif v == true
+            elif v == true:
                 v = 1
             o2_add_float(v)
         o2_send_finish(0, "/" + CLIENT_SERVICE + path, false)
 
 	# Initializes the O2, and sets up the control panel
-	def init():
+
+    def init():
 	    o2_initialize(APPLICATION, false)
 	    o2_clock_set()
 	    o2_osc_delegate(CLIENT_SERVICE, "localhost", osc_port, false)
 	    panel = ControlPanel()
 
-	def timer_callback():
-	    o2_poll()
+    def timer_callback():
+        o2_poll()
 
-	def run():
-		wxs_timer_start(5, 'timer_callback')
+    def run():
+        wxs_timer_start(5, 'timer_callback')
+
 
 # create the Client object and make it run
 client = Client()

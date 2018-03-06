@@ -60,7 +60,7 @@ def start_all_button_handler(timestamp, address, types, val):
     choir.start_all()
 
 def period_slider_handler(timestamp, address, types, val):
-    choir.set_period()
+    choir.set_period(val)
 
 def stop_track_handler(timestamp, address, types, val):
     track_idx = int(address[len(address) - 1])
@@ -89,7 +89,7 @@ def open_port():
     if len(command_line_arguments) > 1 and isdigit(command_line_arguments[1])
         osc_port = int(command_line_arguments[1])
 
-    rslt = o2_osc_port_new(SERVICE, osc_port, false)
+    rslt = o2_osc_port_new(SERVER_SERVICE, osc_port, false)
     # an error occurred
     if rslt != 0
         display "in osc monitor, o2_osc_port_new returned ERROR", rslt
@@ -145,7 +145,7 @@ def main():
 
     # initializes the O2
     o2_initialize(APPLICATION, false)
-    o2_service_new(SERVICE)
+    o2_service_new(SERVER_SERVICE)
 
     # set O2 clock
     o2_clock_set()
@@ -153,7 +153,8 @@ def main():
 
     # install handlers
     install_handlers()
-    install_donttouchosc_handlers()
+
+    # run the O2
     sched_o2_enabled = true
     sched_cause(real_delay(5), nil, 'runit')
 

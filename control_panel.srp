@@ -176,27 +176,22 @@ class ControlPanel:
 
 	# sends the message that stops the sound track
 	def send_stop_track(obj, event, x, y):
-		display "obj.id", obj.id
 		send_afloat("/stopTrackButton" + "/" + str(obj.id), [x])
 
 	# sends the message that starts the sound track
 	def send_start_track(obj, event, x, y):
-		display "obj.id", obj.id
 		send_afloat("/startTrackButton" + "/" + str(obj.id), [x])
 
 	# sends the messages that raises the octave of the sound track
 	def send_octave_up(obj, event, x, y):
-		display "obj.id", obj.id
 		send_afloat("/octaveUpTrackButton" + "/" + str(obj.id), [x])
 
 	# sends the message that lowers the octave of the sound track
 	def send_octave_down(obj, event, x, y):
-		display "obj.id", obj.id
 		send_afloat("/octaveDownTrackButton" + "/" + str(obj.id), [x])
 
 	# sends the message that sets the volume of the sound track
 	def send_set_velocity(obj, x):
-		display "obj.id", obj.id
 		send_afloat("/velocityTrackSlider" + "/" + str(obj.id), [x])
 
 
