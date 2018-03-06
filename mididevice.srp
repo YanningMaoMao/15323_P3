@@ -1,0 +1,158 @@
+# mididevice.srp -- selection and preferences for MIDI device
+#
+# Roger B. Dannenberg
+# June 2014
+#
+# based on aura4/src/srp/midi_device.srp, which works in Aura
+#
+# This file builds upon midi-io.srp, and can be used if running
+# wxserpent. When Midi_devices is instantiated, the File menu is
+# set up with MIDI devices, and the default devices (based on
+# PortMidi and preferences) are opened.
+#     Selecting a device on the menu closes the currently open
+# device and reopens the selected device as midi_in or midi_out.
+#     You should create one and only one Midi_devices object.
+# Call shut_down() to shut down PortMidi followed by open_midi()
+# to start MIDI again. Or, call rescan() to do all this in one call.
+#
+# DEPENDS ON:
+#   prefs must be an instance of Prefs -- this where preferences
+#         will be stored and retrieved
+#   midi-io.srp should be loaded first -- defines Midi_in, Midi_out
+
+require "wxserpent"
+require "midi-io"
+
+class Midi_devices:
+    var file_menu
+    var prefs
+    var initialized
+    var menu_items
+    var last_latency
+    var last_buffer_size
+    var disable_handler
+    var success  // after instantiating an object in this class, you should
+                 // check for problems by testing success, which will be
+                 // true if both devices were opened. (If you pass in
+                 // open_later = t, success will always be false because
+                 // nothing will be opened.)
+
+    # open_later allows you to defer opening devices, perhaps to open only
+    #   input or only output. If open_later is set, then devices will not
+    #   be opened automatically, but success will be false to indicate
+    #   nothing was opened.
+    #
+    def init(prefs_, keyword latency = 0, keyword buffer_size = 100,
+             keyword open_later)
+        prefs = prefs_
+        last_latency = latency
+        // remember parameters for use if we reopen devices
+        initialize()
+        if not open_later:
+            success = open_midi(latency = latency, buffer_size = buffer_size)
+
+    def initialize():
+        if initialized:
+            shut_down()
+        file_menu = default_window.get_menu("File")
+        menu_items = [file_menu.item("-1 NO MIDI (input)",
+                          "Do not open MIDI input",
+                          t, this, 'device_item_handler'),
+                      file_menu.item("-1 NO MIDI (output)",
+                          "Do not open MIDI output",
+                          t, this, 'device_item_handler')]
+        var n = midi_count_devices()
+        display "midi_count_devices", n
+        for i = 0 to n:
+            var info = midi_get_device_info(i)
+            info = str(i) + " - " + info[0] + " : " + info[1] + " (" +
+                   ("input" if info[2] else "output") + ")"
+            menu_items.append(file_menu.item(info,
+                                  "Select this as MIDI device", t,
+                                  this, 'device_item_handler'))
+        menu_items.append(file_menu.item("Rescan MIDI devices",
+                "Shut down MIDI IO. Scan for new devices.",
+                nil, this, 'rescan'))
+        initialized = true
+
+    def shut_down():
+        midi_out.finish()
+        midi_in.finish()
+        for item in menu_items:
+            file_menu.delete(item)
+        menu_items = []
+        midi_terminate()
+
+    def rescan(optional obj, optional event, optional x, optional y):
+        initialize()
+        open_midi(latency = last_latency, buffer_size = last_buffer_size)
+
+    def device_item_handler(obj, event, x, y):
+        if disable_handler: return // see update_checks() method
+        # handle the selection of any midi device
+        var selection = obj.item_string(x)
+        if selection:
+            devno = int(selection)
+            attribute = 'midi_out_device'
+            if find(selection, "(input)") > 0:
+                attribute = 'midi_in_device'
+            prefs.set(attribute, devno)
+            prefs.save()
+            open_midi(latency = last_latency, buffer_size = last_buffer_size,
+                      device = attribute)
+
+    def update_checks(dev, is_output)
+        disable_handler = true // avoid action due to setting checks
+        for item in menu_items: // item is a menu item identifier
+            var selection = file_menu.item_string(item)
+            // string: <dev number> <device-description> <(input) or (output)>
+            if is_output:
+                if find(selection, "(output)") > 0:
+                    file_menu.set_and_act(item, int(selection) == dev)
+            else:
+                if find(selection, "(input)") > 0:
+                    file_menu.set_and_act(item, int(selection) == dev)
+        disable_handler = false
+
+    // if device is 'midi_in_device' or 'midi_out_device' then we
+    //   only open one device. Returns true if all intended devices
+    //   are opened
+    def open_midi(keyword latency = 0, keyword buffer_size = 100,
+                  keyword device = nil):
+        var result = t
+        if (not device) or (device == 'midi_out_device'):
+            midi_out.finish()
+            var midi_out_dev = prefs.get('midi_out_device')
+            // make sure device is not null
+            if not midi_out_dev
+                midi_out_dev = midi_out_default()
+            // avoid trying to open a non-input device: failure to open
+            // will cause debug version of PortMidi (with PM_CHECK_ERRORS
+            // enabled) to call exit()
+            var info = midi_get_device_info(midi_out_dev)
+            result = false
+            if info and info[3] # is this a valid output device?
+                last_latency = latency
+                result = midi_out.start(latency = latency,
+                                        midi_out_dev = midi_out_dev)
+                display "open_midi 1", result
+                update_checks(midi_out_dev, true) # fix check marks in menu
+        if (not device) or (device == 'midi_in_device'):
+            midi_in.finish()
+            var midi_in_dev = prefs.get('midi_in_device')
+            // make sure device is not null
+            if not midi_in_dev
+                midi_in_dev = midi_in_default()
+            // avoid trying to open a non-input device: failure to open
+            // will cause debug version of PortMidi (with PM_CHECK_ERRORS
+            // enabled) to call exit()
+            info = midi_get_device_info(midi_in_dev)
+            var in_result = false
+            if info and info[2] # is this a valid input device?
+                last_buffer_size = buffer_size
+                in_result = midi_in.start(buffer_size = buffer_size,
+                                              midi_in_dev = midi_in_dev)
+                display "open_midi 1", in_result
+                update_checks(midi_in_dev, false) # fix check marks in menu
+            result = result and in_result
+        return result

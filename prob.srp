@@ -1,0 +1,113 @@
+# prop.srp - some functions for random selection
+#
+# Roger Dannenberg, Jan 2017
+#
+#
+# pr_choice(list, [source]) - pick an element from a list; if
+#        source is provided, the element is removed from list.
+#        If list is initially empty, insert elements from source
+#        before picking and removing an element.
+# pr_coin(p) - return true with probability p
+# pr_gaussian() - return from Gaussian distribution, 
+#        with mean 0, standard deviation 1 (see pr_normal())
+# pr_markov_next(state, table) - pick a next state from the current
+#        state. (See code for more information.)
+# pr_normal(mu, sigma [, low [, high]]) - draw from a normal
+#        (Gaussian) distribution with mean mu, standard
+#        deviation sigma, with optional low and high limits.
+#        Values are rejected when out of bounds, so this is
+#        an iterative algorithm that runs until an acceptable
+#        value is generated
+# pr_range([low], high) - pick an integer >= low and < high
+#        with uniform distribution. Default for low is zero (0).
+# pr_unif([low], high) - pick a real random number >= low and < high
+#        with uniform distribution. Default for low is zero (0).
+# pr_weighted_choice(weights) - pick index according to weights
+
+def pr_coin(p)
+    # return true with probability p, false with probability 1 - p
+    random() < p
+
+
+def pr_markov_next(state, table)
+    # pick a next state from the current state
+    // state is integer index into table (square)
+    // table: each row corresponds to current state
+    //        each col corresponds to next state probability
+    // start by getting the probabilities for state
+    var pr = table[state]
+    // pick with weighs
+    return pr_weighted_choice(pr)
+
+
+def pr_weighted_choice(weights)
+    var s = 0
+    for w in weights    // find sum of weights
+        s = s + w
+    var x = random() * s
+    // search for the selection
+    s = 0
+    for w at i in weights    // find sum of weights
+        s = s + w
+        if s >= x
+            return i
+    return len(weights) - 1 // just in case of some rounding error
+
+
+// Box Muller method, see 
+// https://docs.oracle.com/javase/8/docs/api/java/util/Random.html#nextGaussian
+
+pr_next_gaussian = nil
+pr_have_next_gaussian = false
+
+
+def pr_gaussian()
+    # result has a mean of 0 and std dev of 1
+    if pr_have_next_gaussian
+        pr_have_next_gaussian = false
+        return next_gaussian
+    else
+        var v1, v2, s = 0
+        while s >= 1 or s == 0
+            v1 = 2 * random() - 1   // between -1.0 and 1.0
+            v2 = 2 * random() - 1   // between -1.0 and 1.0
+            s = v1 * v1 + v2 * v2
+        var multiplier = sqrt(-2 * log(s)/s)
+        next_gaussian = v2 * multiplier
+        have_next_gaussian = true
+    return v1 * multiplier
+
+
+def pr_normal(mu, sigma, optional low, optional high)
+    if high and low and high <= low:
+        error("pr_normal: high must be greater than low")
+    while true
+        var norm = (pr_gaussian() * sigma) + mu
+        if (((not low) or (low <= norm)) and 
+            ((not high) or (norm < high)))
+            return norm
+
+
+def pr_choice(list, optional source)
+    if source
+        if len(list) == 0
+            for s in source
+                list.append(s)
+    var i = pr_range(len(list))
+    var choice = list[i]
+    if source
+        list.uninsert(i)
+    return choice
+
+
+def pr_unif(low, optional high)
+    if not high: 
+        high = low
+        low = 0
+    low + random() * (high - low)
+
+
+def pr_range(low, optional high)
+    int(pr_unif(low, high))
+
+    

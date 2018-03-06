@@ -1,0 +1,261 @@
+// debugger -- load this to catch runtime exceptions
+
+// if dbg_exit_function is set to some symbol, that
+// function is called upon exit
+dbg_exit_function = nil
+
+// if dbg_stack_print is true, a stack trace is printed
+// automatically upon entry to the debugger
+dbg_stack_print = t
+
+// if dbg_zone_print is true, the Aura zone is printed
+// automatically upon entry to the debugger (only for
+// Serpent running embedded in an Aura application)
+dbg_zone_print = nil
+
+require "strparse"
+require "termcolor"
+
+def find_line_at_loc(name, loc):
+# returns line containing loc, rslt is set to offset of loc in line
+# if file does not exist or is shorter than loc, return nil
+    if not name:
+        return nil
+    var source = open(name, "r")
+    if not source:
+        return nil
+    var line_number = 0
+    while loc >= 0:
+        var line = source.readline()
+        if not line:
+            source.close()
+            return nil
+        loc = loc - len(line)
+        line_number = line_number + 1
+    loc = loc + len(line)
+    rslt = [loc, line_number]
+    source.close()
+    return line
+
+def spaces(n):
+    var s = ""
+    for i = 0 to n:
+        s = s + " "
+    return s
+
+
+def right_justify(s, n):
+# pad s to length n
+    s = str(s)
+    return spaces(n - len(s)) + s
+
+
+def print_frame_info(frame):
+    print "Method "; term_string_color(str(frame_method(frame)), 2); 
+    print " in class "; term_string_color(str(frame_class(frame)), 4);
+    if frame_char(frame):
+        print ", char "; frame_char(frame);
+    if frame_file(frame):
+        if frame_file(frame) == "<stdin>":
+            print " in <stdin>"
+        else:
+            print " in file \n    "; frame_file(frame)
+    else:
+        print
+    var vars = frame_variables(frame)
+    if vars and len(vars.keys()) > 0:
+        print "Frame variables: "; repr(vars)
+    var line = find_line_at_loc(frame_file(frame), frame_char(frame))
+    if line:
+        var offset = rslt[0]
+        var line_no = rslt[1]
+        print right_justify(line_no, 4); ": "; line; // line has newline
+        print spaces(offset + 6); "^"
+
+
+## Input abstraction: wxSerpent uses dialog box for input, Serpent uses console
+## (we could just use stdin for wxSerpent, but users are always confused by the
+## dialog box that won't go away unless you give input to the debugger.)
+
+dbg_input_line = ""
+
+def dbg_read(n)
+    // this is a trick to detect if we're (not) running wxSerpent:
+    if symbol_value('WXS_MOVE') == 'dbg_unbound'
+        stdout.flush()
+        stdin.read(n)
+    else
+        while len(dbg_input_line) == 0
+            dbg_input_line = wxs_get_text(
+                "Debugger input (type ! to exit, and check the console for output):", 
+                "Debug", "", 0) + "\n"
+        var rslt = subseq(dbg_input_line, 0, n)
+        dbg_input_line = subseq(dbg_input_line, n)
+        return rslt
+
+
+def dbg_readline()
+    if (getfeatures() & OPTION_WXS) != 0
+        return dbg_read(1000)
+    else
+        stdin.readline()
+
+def dbg_unread(c)
+    if (getfeatures() & OPTION_WXS) != 0
+        dbg_input_line = c + dbg_input_line
+    else
+        stdin.unread(c)
+
+##
+## Here is the real debugger implementation
+##
+
+def debugger(msg, frame):
+    var temp = stdout
+    stdout = stderr
+    var frames = []
+    print "Debugger invoked."
+    // print line where error occurred:
+    if dbg_stack_print:
+        dbg_stacktrace(frame)
+    if dbg_zone_print:
+        print "In zone", aura_zone_id
+    print term_string_color(msg, 1)
+    var curframe = frame
+    while t:
+        print runtime_exception_nesting(); ">",
+        var c = dbg_read(1)
+        if len(c) < 1: // must be EOF (^D)
+            exit()
+        elif c == "?":
+            dbg_stacktrace(curframe)
+            dbg_readline()
+        elif c == "*":
+            dbg_showframe(curframe)
+            dbg_readline()
+        elif c == "+":
+            if curframe:
+                frames.append(curframe)
+                curframe = frame_previous(curframe)
+            dbg_showframe(curframe)
+            dbg_readline()
+        elif c == "-":
+            if frame != curframe:
+                curframe = frames.unappend()
+                dbg_showframe(curframe)
+            dbg_readline()
+        elif c == "=":
+            eval(dbg_readline())
+        elif isalpha(c):
+            dbg_unread(c)
+            dbg_variable(curframe)
+        elif c == "!":
+            print "Exiting ..."
+            stdout = temp
+            if dbg_exit_function:
+                print "calling", dbg_exit_function
+                funcall(dbg_exit_function)
+            exit()
+        elif c == ">":
+            print "Resume execution..."
+            dbg_end() // this unwinds execution to eval() or command interpreter
+            return
+        else:
+            print "? - stack trace"
+            print "<id> - print variable value"
+            print "* - print all variables"
+            print "+ - up one level (to caller)"
+            print "- - down one level (to callee)"
+            print "=<expr> - evaluate expression"
+            print "! - exit"
+            print "> - resume execution"
+
+
+def dbg_stacktrace(f):
+    var prev = frame_previous(f)
+    if prev:
+        dbg_stacktrace(prev)
+    print "-----------------------------------------------------"
+    print_frame_info(f)
+
+
+def dbg_showframe(f):
+    print "Frame variables: "; repr(frame_variables(f))
+
+
+def dbg_variable(f):
+    var expr = dbg_readline()
+    expr = String_parse(expr)
+    var name = expr.get_csym()
+    # print "dbg_variable name =", name
+    var symbol = intern(name)
+    var vars = frame_variables(f)
+    var value
+    var got_value
+    print name;
+    if vars and vars.has_key(symbol):
+        print " (local) ";
+        value = vars[symbol]
+        got_value = t
+    else:
+        var ob = frame_object(f)
+        if ob:
+            vars = object_variables(ob)
+            if vars and vars.has_key(symbol):
+                print " (instance variable) ";
+                value = vars[symbol]
+                got_value = t
+    if not got_value:
+        print " (global) ";
+        if symbol_value(symbol) == 'dbg_unbound'
+            value = '<THIS VARIABLE IS UNBOUND>'
+        else
+            value = symbol_value(symbol)
+    while t:
+        expr.skip_space()
+        var more = expr.peek()
+        var field
+        // print "debug loop, more: |"; more; "|", "string", expr.string, "pos ", expr.pos
+        if not more:
+            // remove the newline before printing expression
+            print " = "; value
+            return
+        if more == ".":
+            expr.pos = expr.pos + 1
+            vars = object_variables(value)
+            if expr.peek() == "*":
+                print subseq(expr.string, 0, -1); " -> "; vars
+                return
+            field = expr.get_csym()
+            if field and vars.has_key(field):
+                field = intern(field)
+                value = vars[field]
+            else:
+                print "field not found"
+                return
+        else:
+            print "variable syntax error: \""; expr.remainder(); "\""
+            return
+
+
+def runtime_exception(msg, frame):
+    if not stdlog:
+        stdlog = open("srp.log", "w")
+        if stdlog:
+            print "debug.srp created srp.log for error report..."
+        else:
+            print "debug.srp failed to create srp.log for error report..."
+    # var f = frame_previous()
+    print "runtime exception handler called"
+    print "exception is:", 
+    print term_string_color(msg, 1)
+    if msg != "array too big":
+        # if "array too big", then data is not printable
+        print "frame variables:", frame_variables(frame)
+    print "frame pc:", frame_pc(frame)
+    print "frame method:", frame_method(frame)
+    print "frame class:", frame_class(frame)
+    # print "frame previous:", frame_previous(frame)
+    print
+    debugger(msg, frame)
+

@@ -1,0 +1,670 @@
+# sched.srp -- a scheduler framework
+#
+# Logical Time Theory
+#    Scheduling associates an ideal time with every event (function call,
+#      method invocation). The event is run as close to the logical
+#      time as possible. Think of logical time is an idealized time or
+#      specification. This section is mainly about where this
+#      specification comes from. But before getting to that, we'll
+#      describe the action of the scheduler: Logical times are mapped
+#      to real time, and as soon as the actual real time reaches the
+#      mapped logical time, the event is run. To map from logical time
+#      to real time, Vscheduler's use a Time_map object to map to their
+#      parent's time (Vscheduler's can form a tree with a Scheduler at
+#      the root.) Scheduler's add time_offset to get from logical time
+#      to real time.
+#    Computing Logical Times. Logical times are normally relative to
+#      another logical time. When you call cause(delta, ...), a new
+#      event is created with the logical time of time + delta, where
+#      time is the (ideal) logical time of the current event. If you
+#      cause an event, and that event causes another event, and so on,
+#      the logical times are the precise accumulation of all the
+#      delta's and therefore there is no drift or quantization due to
+#      execution time or finite polling rates. But what about the
+#      first event in such a sequence? When some external (to the
+#      scheduler) execution, e.g. from a user interface or the
+#      network, needs to schedule an event, you must call update(),
+#      which updates a scheduler as if the scheduler were running
+#      an event whose logical time maps exactly to the current real
+#      time. Then, cause(delta) will schedule an event at offset
+#      delta from the current real time. Note that while this is
+#      happening, time passes, so even if you schedule an event
+#      with cause(0, ...), it might run *after* some other
+#      previously scheduled event whose logical time is already
+#      in the past.
+# 
+# Globals:
+#    rtsched - the single real-time scheduler object
+#    vtsched - an initial virtual-time scheduler object (more can be created)
+#    sched_vtime -- the logical time of the current scheduler
+#    sched_rtime -- the current ideal time of the real-time scheduler
+#    sched_current - tells what scheduler dispatched the currently running event
+#                (can be changed by a call to sched_select())
+#    sched_running - set this to false to exit sched_run loop
+#    sched_nesting - nesting level of rtsched
+#    sched_time_get - a function name (symbol), e.g. 'o2_time_get', that
+#              provides an alternate time reference. Default is 'time_get'
+#    EPSILON - a small value, larger than rounding error
+#    INFINITY - a time that will never be reached
+#
+# API: External interface for the classes, i.e. the methods that clients 
+#       should call and what they do (see actual methods for details)
+#
+#    sched_init() prepares to run
+#       creates globals rtsched and vtsched
+#    sched_run() runs the scheduler until sched_running is set to false
+#       Note: this can optionally poll for OSC, MIDI, and a user-defined
+#             sched_poll_function so that you do not need to schedule periodic
+#             polling tasks.
+#       Note 2: Only call sched_run() from serpent. There is no need to start
+#             scheduling after sched_init() when running wxserpent
+#       Note 3: an optional parameter gives the polling period in ms.
+#    sched_stop() -- tell sched_run() to stop running and return
+#    sched_select(sched) -- select a scheduler as the current one. Most functions
+#       (below) apply to the selected scheduler, identified by sched_current
+#    sched_poll(when) - run scheduling (normally handled by sched_run()
+#    sched_cause() - schedule an event
+#    sched_r2v(r) - translates current time r (e.g. get_time()) to scheduler time
+#    sched_v2r(v) - returns v
+#    sched_bump_time(d) - advance scheduler's time, used for synchronization
+#    sched_set_bpm(bpm) - set bpm units of virtual time = 60s of real time
+#                   Note: if virtual units are beats, bpm is beats per minute.
+#    sched_set_bps(bps) - set bps units of virtual time = 1s of real time
+#                   Note: if virtual units are beats, bps is beats per second.
+#    sched_set_period(p) - set 1 unit of virtual time = p seconds of real time
+#    sched_set_time(v) - set the current virtual time to v
+#    sched_wait(period) - wait period time units
+#    sched_wait_until(when) - what until when
+#    sched_flush() - unschedule all pending events for current scheduler
+#
+
+require "debug"
+require "utils"
+
+sched_trace = nil
+sched_current = nil
+
+INFINITY = 1000000.0 // many hours
+
+require "timemap"
+
+# to cause an event at an absolute time (either beats, virtual time, or
+# real time, call cause like this:
+#       sched_cause(absolute(abs_time), obj, meth, ...)
+
+def absolute(x)
+    # compute delta for cause corresponding to absolute logical time x
+    x - sched_current.time
+
+def real_delay(delta)
+    # compute delta for cause relative to real time,  not logical time
+    # Example: If you are behind schedule and want to schedule an
+    #   event 0.1s from the current real time (so delays will accumulate)
+    #   call sched_cause(real_delay(0.1), ...)
+    # delta is in local (logical) units. If you want delta in seconds,
+    #   call rtsched.start_use() and then call sched_cause()
+    absolute(sched_current.r2v(funcall(sched_time_get) if 
+                           sched_time_get else time_get()) + delta)
+
+
+def sched_continue(who)
+    # used by wait_until to continue a thread execution
+    run(who)
+    yieldto(who) // who will now return from wait_until() and continue
+    
+
+#######################################
+# Sched API functions here
+#######################################
+
+sched_rtime = 0.0
+sched_vtime = 0.0
+sched_poll_period_ms = 2
+midi_in = nil
+sched_osc_enabled = nil
+sched_o2_enabled = nil
+sched_poll_function = nil
+sched_time_get = nil    // optional alternate time reference
+
+
+# application should call this to create schedulers and prepare
+# to enter real-time processing
+#
+sched_initialized = nil // detects if we've started before
+def sched_init(optional period = sched_poll_period_ms)
+    sched_poll_period_ms = period
+    if sched_initialized // do not restart timer, reuse scheduler objects
+        // do a reset on existing objects
+        rtsched.init()
+        vtsched.init(rtsched)
+    else
+        rtsched = Scheduler()
+        vtsched = Vscheduler(rtsched)
+    time_start(sched_poll_period_ms)
+    rtsched.time_offset = 0 if sched_time_get else time_get()
+    if (getfeatures() & OPTION_WXS) != 0
+        wxs_timer_start(sched_poll_period_ms, 'sched_poll')
+    sched_initialized = t
+    sched_current = rtsched
+
+
+def sched_run()
+    // application should call this after initilization
+    sched_running = t
+    rtsched.time_offset = 0 if sched_time_get else time_get()
+    while sched_running
+        sched_poll()
+        time_sleep(sched_poll_period_ms * 0.001) // delay 2ms to allow other processes to run
+
+
+def sched_stop()
+    sched_running = false
+
+
+def sched_poll()
+    var time =  funcall(sched_time_get) if 
+                sched_time_get else time_get()
+    rtsched.poll(time)
+    if sched_osc_enabled:
+        osc_server_poll()
+    if sched_o2_enabled:
+        o2_poll()
+    if midi_in:
+        midi_in.poll()
+    if sched_poll_function
+        funcall(sched_poll_function)
+    return
+    # do some analysis on timing unless you return first
+    # computes longest inter-callback period over each epoch
+    var period = time - last_callback_time
+    callback_max_period = max(period, callback_max_period)
+    if time > callback_stats_epoch_end
+        print "* longest recent callback period:", int(callback_max_period * 1000); "ms"
+        if smallest_time_advance != 9999
+            print "* smallest time advance:", smallest_time_advance; "ms"
+            smallest_time_advance = 9999
+        callback_max_period = 0
+        callback_stats_epoch_end = time + callback_stats_epoch_dur
+    last_callback_time = time
+
+
+def sched_select(s): 
+    # select s as the current scheduler, compute the current logical time
+    # Note that even if s is already selected, we need to call s.select()
+    # to update the local time, possibly from the real-time clock
+    s.select()
+
+
+def sched_cause(when, target, message, rest parms)
+    sched_current.cause(when, target, message, parms)
+
+def sched_r2v(r): sched_current.r2v(r)
+
+def sched_v2r(v): sched_current.v2r(v)
+
+def sched_bump_time(d): sched_current.bump_time(d)
+
+def sched_set_bpm(bpm): sched_current.set_bpm(bpm)
+
+def sched_set_bps(bps): sched_current.set_bps(bps)
+
+def sched_set_period(p): sched_current.set_period(p)
+
+def sched_set_time(v): sched_current.set_time(v)
+
+def sched_wait(period): sched_current.wait_until(sched_vtime + period)
+
+def sched_wait_until(when): sched_current.wait_until(when)
+
+def sched_flush(): sched_current.flush()
+
+
+sched_nesting = 0 // non-zero when running scheduled events
+nesting_error_printed = t
+
+class Scheduler
+    var time  // this is the ideal current time
+    var queue
+    var next_time // either INFINITY or queue.last()[0]
+    var time_offset // the scheduler starting time
+    var thread // see VScheduler -- the thread that's driving things
+
+    def init()
+        time = 0.0 // ideal real time
+        next_time  = INFINITY
+        queue = []
+        // display "scheduler.init", threadid()
+        thread = threadid()
+
+    # schedule an event: 
+    #    when is the time offset from RNOW until the event time
+    #    target is an object that will receive message
+    #        (target should be nil for an ordinary function call)
+    #    message is a symbol (single quotes) naming method or function
+    #    remaining parameters are passed to method or function
+    def cause(when, target, message, parms)
+        // display "cause", time_get(), when, time, target, message, parms, queue
+        when = time + when // when is an offset from current time
+        queue.append([when, target, message, parms])
+        queue.resort()
+        // no need for separate reschedule() as in Vscheduler
+        if len(queue) > 0
+            next_time = queue.last()[0]
+        else
+            next_time = INFINITY
+
+
+    def wait_until(when)
+        // display "wait_until", thread, threadid()
+        if threadid() == thread
+            error("wait or wait_until cannot be called by main thread")
+        if when > sched_rtime
+            cause(absolute(when), nil, 'sched_continue', [threadid()])
+            suspend(threadid())
+
+
+    # must be called periodically for Scheduler to work correctly
+    #     when is the current real time returned by time_get()
+    def poll(when)
+        // NOTE: it is ok to have more than one Scheduler instance
+        // (although odd), but you cannot have one scheduler polling
+        // another. 
+        if sched_nesting > 0
+            // this can happen if we get into a dialog box
+            if not nesting_error_printed:
+                // just print once per sequence of nesting errors
+                nesting_error_printed = true
+                print "Recursive call to Scheduler::poll() or ";
+                print "Scheduler::start_use()\n    not closed by ";
+                print "Scheduler::finish_use(). Returning from poll()."
+            error("missing finish_use()")
+            return
+        nesting_error_printed = false
+        sched_nesting = 1
+        // DANGER! bump_time can change time_offset, so we recompute the ideal
+        // time of when - time_offset every time through the loop
+        while when - time_offset >= next_time - EPSILON
+            var event = queue.unappend()
+            if len(queue) > 0
+                next_time = queue.last()[0]
+            else
+                next_time = INFINITY
+            time = event[0]
+            sched_rtime = time
+            sched_vtime = time
+            if sched_trace:
+                print "dispatch at "; when - time_offset; " ideal "; time;
+                print " msg "; repr(event[2]); " behind "; 
+                print time_get() - (sched_rtime + time_offset)
+            sched_current = this
+            var target = event[1]
+            var message = event[2]
+            var parms = event[3]
+            general_apply(target, message, parms)
+        sched_nesting = 0
+
+        // after all scheduled events have been run,
+        // update time to reflect the current real time:
+        time = when
+
+
+    # return an idealized integer count of milliseconds corresponding
+    # to the timestamp used by PortMidi. Note that the timestamp used
+    # by PortMidi is equal to int(time_get() * 1000)
+    def get_tick()
+        // note: if you are not running the scheduler, time_offset is nil
+        // and this will raise an (intentional) error. It means you are
+        // trying to schedule MIDI data before starting the scheduler.
+        // Also, if you are not running a scheduled event, you must call
+        // sched_select() before get_tick(). Otherwise, sched_rtime
+        // will be the ideal time of the last event that ran, so it
+        // may be a time in the distant past.
+        if sched_nesting == 0
+            print "ERROR: Scheduler::get_tick() called, but not in an event"
+        if sched_time_get // midi time 
+            // note that since we don't run a protocol to measure the time
+            // difference between sched_time_get and time_get, this could
+            // compute a too-large value if there is a pause just before the 
+            // call to time_get():
+            var delay = sched_rtime + time_offset - funcall(sched_time_get)
+            int((time_get() + delay) * 1000)
+        else
+            int((sched_rtime + time_offset) * 1000)
+
+
+    # switch the current scheduler to this one, so named to discourage
+    #   any calls except from within Scheduler or Vscheduler methods.
+    def select()
+        if sched_nesting == 0 // scheduler virtual time is realtime - starttime
+            var sched_time = funcall(sched_time_get) if 
+                             sched_time_get else time_get()
+            sched_time = sched_time - time_offset
+        // otherwise scheduler virtual time was exactly set by current event
+        time = sched_time
+        sched_current = this
+
+
+    # nested time mapping stops here
+    def r2v(r)
+        r - time_offset
+
+    def v2r(v)
+        v + time_offset
+
+
+    # make time greater by delta (for time synchronization)
+    #     Note: if delta is large, this could unleash many scheduled events
+    #           at once. Normally, this would only be used to correct clock
+    #           skews of a few milliseconds
+    def bump_time(delta)
+        time_offset = time_offset - delta
+        time = time + delta
+
+
+    // Display Scheduler as a string, e.g. for debugging. If when is given,
+    // it is treated as clock time and the conversion to scheduler time is
+    // included in the resulting string.
+    def to_string(optional when):
+        # show current real time, current virt time, and bps
+        var save_sched = sched_current // restore sched_current after making string
+        sched_select(this)
+        var s = "Scheduler: time_offset " + str(time_offset) +
+                " scheduler time " + str(time)
+        if when:
+            s.append(" " + str(when) + " -> " + str(r2v(when)))
+        finish_use()
+        if sched_current != save_sched
+            save_sched.select()
+        return s
+
+
+class Vscheduler (Time_map)
+    var name  // optional name for debugging
+    var time
+    var parent // the scheduler that provides our time reference
+    var queue // queue of pending events, sorted by virtual time
+    var next_vtime // either INFINITY or queue.last()[0], and the time
+            // when we expect an activate message, which causes this
+            // scheduler to dispatch an event. If an activate message
+            // arrives earlier than next_vtime, we ignore it because there
+            // is always a message scheduled for the correct event time.
+            // We have to reschedule (and possibly create extra activate
+            // messages when the time map changes.
+    var adjust_num // sequence number to cancel scheduled calls to adjust_map
+    var thread // the thread that will run this scheduler. Usually this is
+            // the "main" thread (not one created by fork()). This thread
+            // dispatches events. When a thread wakes up from wait() or 
+            // wait_until(), this thread yields to the waking thread. When
+            // the thread waits again, it yields back to this thread.
+
+    def init(rts, optional s = "")
+        parent = rts
+        super.init(0, 0, 1.0) // initial tempo is 60 bpm = 1 bps
+        time = 0.0
+        queue = []
+        next_vtime = INFINITY
+        adjust_num = 0
+        name = s
+        thread = threadid()
+
+    // convert to string, e.g. for debugging. If when (a real time) is provided,
+    // the conversion from real to virtual is also printed
+    def to_string(optional when):
+        # show current real time, current virt time, and bps
+        var save_sched = sched_current // restore sched_current after making string
+        sched_select(this)
+        var s = "Vscheduler: vt " + str(time) + " rt " + str(parent.time) +
+                " bps " + str(bps)
+        if when:
+            s.append(" " + str(when) + " -> " + str(r2v(when)))
+        if sched_current != save_sched
+            save_sched.select()
+        return s
+
+
+    # schedule an event: just like cause in Schedule, except
+    # event is scheduled relative to this virtual time
+    def cause(when, target, message, parms)
+        // display "vcause 1", time_get(), when, time, time + when, target, message, parms
+        when = time + when
+        queue.append([when, target, message, parms])
+        queue.resort()
+        // display "vcause 2", queue.last()[0], len(queue)
+        if next_vtime > when
+            reschedule()
+
+
+    def wait_until(when)
+        if threadid() == thread
+            error("wait or wait_until cannot be called by main thread")
+        if when > sched_vtime
+            cause(absolute(when), nil, 'sched_continue', [threadid()])
+            suspend(threadid())
+
+
+    # unschedule all pending events; do not execute/dispatch them
+    def flush()
+        queue.clear()
+        next_vtime = INFINITY
+
+
+    def select()
+        parent.select()
+        sched_current = this
+        time = map_from_parent(parent.time) // update the local time
+
+
+    # (recursive) mapping from real time to local virtual time
+    def r2v(now)
+        map_from_parent(parent.r2v(now))
+
+
+    # (recursive) mapping from local virtual time to real time
+    def v2r(vnow)
+        parent.v2r(map_to_parent(vnow))
+
+    # note: use map_from_parent() and map_to_parent() to apply
+    #   local time_map or its inverse
+
+    # private method to schedule a wake-up call for next event in queue
+    def reschedule():
+        if len(queue) > 0
+            next_vtime = queue.last()[0]
+            parent.cause(map_to_parent(next_vtime) - parent.time, 
+                         this, 'activate', nil)
+        else
+            next_vtime = INFINITY
+
+
+    # internal method called by parent scheduler to run the next event
+    # in the queue. Since activate is always scheduled for the next
+    # event in the queue, we can ignore any activate that arrives early
+    # (and in fact we must to eliminate redundant activate messages)
+    # If the message is not early, we dispatch one or more events and
+    # schedule another activate message unless the queue is empty.
+    def activate()
+        time = map_from_parent(parent.time) // update the local logical time
+        if time < next_vtime - EPSILON
+            return // ignore this activate, another will come later
+        while time >= next_vtime - EPSILON
+            var event = queue.unappend()
+            if len(queue) > 0
+                next_vtime = queue.last()[0]
+            else
+                next_vtime = INFINITY
+            time = event[0] // should not be necessary
+            sched_vtime = time
+            var target = event[1]
+            var message = event[2]
+            var parms = event[3]
+            sched_current = this
+            // display "vdispatch", time_get(), time, target, message, parms
+            general_apply(target, message, parms)
+        reschedule() // in case no wake-up for next_vtime
+
+
+    # set the scheduler time to v. The time map
+    # currently maps parent.time to this.time. The map is changed to map
+    # parent.time to v
+    def set_vtime(v)
+        rt_base = parent.time
+        vt_base = v
+        time = v
+        reschedule()
+
+
+    # set the "tempo" The time map currently maps parent.time to this.time.
+    # At that point, the tempo changes.
+    def set_bpm(bpm)
+        set_bps(bpm / 60)
+
+    def set_bps(b)
+        adjust_num = adjust_num + 1 // cancel any callback
+        if b <= 0
+            print "ERROR: set_bps("; bps; ") ignored!"
+        else
+            rt_base = parent.time
+            vt_base = time
+            bps = b
+            reschedule()
+
+    def set_period(p):
+        if p <= 0:
+            print "ERROR: set_period("; p; ") ignored!"
+        else:
+            set_bps(1 / p)
+
+
+    def set_time_map(rt, vt, bps_)
+        adjust_num = adjust_num + 1 // cancel any callback
+        rt_base = rt
+        vt_base = vt
+        bps = bps_
+        reschedule()
+
+
+    # adjust_map takes in a estimated time_map (e.g. from foot tapping) and
+    # smoothly interpolates from this time map to the new one. It is assumed
+    # that the parent is rtsched.
+    #  est_map - the estimated time_map, mapping real time to OUTPUT time.
+    #            est_map must NOT be modified until at least the next call
+    #            to this adjust_map method.
+    #  conv_dist - the convergence distance in beats, larger is smoother
+    #  lag - latency. Assume this scheduler schedules everything early by
+    #        lag because event OUTPUT happens lag seconds after events are
+    #        scheduled. To make OUTPUT converge to est_map, we need to
+    #        (eventually) schedule at (the time specified by est_map) - lag.
+    #
+    def adjust_map(est_map, conv_dist, lag):
+        // THIS BLOCK OF STUFF IS FOR DEBUGGING
+        print name, "adjust_map: local map",
+        show()
+        print "est_map",
+        est_map.show()
+        sched_select(this)
+        var diff = time - est_map.map_from_parent(rtsched.time + lag)
+        // display "adjust_map", time, diff, lag
+        
+        // cancel any pending adjust_num_n calls:
+        adjust_num = adjust_num + 1
+        // first time to set the time_map (STOPPED_BPS) or converged time
+        // maps indicated by the beat according to est_map after lag
+        // seconds equal to the current beat. If either is true, just
+        // copy the estimated map to the current map
+        if bps <= STOPPED_BPS or 
+           within(time, est_map.map_from_parent(rtsched.time + lag), 0.002)
+            // similar to set_time_map, but we have to shift rt_base by lag:
+            vt_base = est_map.vt_base
+            rt_base = est_map.rt_base - lag
+            bps = est_map.bps
+            reschedule()
+        else:
+            // more debugging: see if beat changes
+            var beat_before_adjust = time
+            var time_before_adjust = rtsched.time
+
+            lagged_time = rtsched.time + lag
+            // change rt_base, vt_base to now + latency when tempo change 
+            //  will take effect
+            vt_base = time // BUG? WAS: map_from_parent(lagged_time)
+            rt_base = lagged_time
+            // Compute tempo in bps, s.t. starting at rt_base, we will
+            // intersect current time map after conv_dist beats. 
+            // The equation is bps = (conv_dist * est_map.bps) / den,
+            // where den is given below. We need den > 0 to get a
+            // finite positive bps. Moreover, let's limit bps to
+            // 2 * est_map.bps, i.e. go at most twice the estimated
+            // tempo in order to catch up, so bps / est_map.bps < 2.
+            // Therefore bps / est_map.bps = conv_dist / den < 2,
+            // or conv_dist < 2 * den.
+            // den is the "denominator" in Eq. 8 of the 2011 NIME paper
+            var den = est_map.rt_base * est_map.bps -
+                      rt_base * est_map.bps - est_map.vt_base +
+                      vt_base + conv_dist
+            if conv_dist < 2 * den:
+                bps = (conv_dist * est_map.bps) / den
+            else:
+                bps = 2 * est_map.bps // it will take more than conv_dist
+                // to catch up, but this is as fast as we can go
+            // new time map is correct except that it expresses the desired
+            // output timing. We need to shift by latency to determine how
+            // to schedule events. They will then match the desired output
+            // timing because the output is delayed by latency
+            rt_base = rt_base - lag
+            next_vtime = INFINITY // force reschedule in cause()
+            cause(conv_dist / 2, this, 'adjust_map_n', 
+                  [est_map, conv_dist, lag, adjust_num])
+            // more debugging: see if beat changes
+            diff = time - beat_before_adjust
+            var diff2 = rtsched.time - time_before_adjust
+            // display "after adjust", beat_before_adjust, time, diff, time_before_adjust, rtsched.time, diff2
+
+            
+
+    # private method used by adjust_map()
+    def adjust_map_n(est_map, conv_dist, lag, n)
+        if adjust_num == n
+            adjust_map(est_map, conv_dist, lag)
+
+    # debugging support: print functions to be called in future
+    #    the format is method@time with [p1, p2, p3, ...]
+    #    (the object, if any, is not printed)
+    def show_queue():
+        sched_select(this)
+        for i = len(queue) - 1 to -1 by -1:
+            var ev = queue[i]
+            print "    "; ev[2]; "@"; ev[0]; " with ", ev[3]
+        print "   Parent time "; parent.time; " Virt time "; time
+        print "   activate at parent times:"
+        for i = len(parent.queue) - 1 to -1 by -1:
+            ev = parent.queue[i]
+            if ev[1] == this:
+                print "    "; ev[2]; "@"; ev[0]; "->"; map_from_parent(ev[0]);
+                print " with ", ev[3]
+
+        
+# This function is used to apply a function to an array of parameters.
+# If target is nil, a function is called. If target is an object, the
+# "function" is interpreted as a method and the method is invoked with
+# the set of parameters. A run-time error occurs if target is not an
+# object (or nil), or if message is not a valid function or method name.
+#
+SCHED_NO_PARMS = []
+def general_apply(target, message, parms):
+    if not parms: 
+        parms = SCHED_NO_PARMS
+    if target:
+        sendapply(target, message, parms)
+    else
+        apply(message, parms)
+
+
+last_callback_time = 0
+callback_stats_epoch_end = 0
+callback_stats_epoch_dur = 10 // seconds
+callback_max_period = 0
+// uncomment code in midi-io:Midi_out:note_on() to track
+// time advance and see if any onsets are late
+smallest_time_advance = 9999
+
+

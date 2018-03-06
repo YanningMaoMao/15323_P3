@@ -1,0 +1,228 @@
+# slider.srp -- implementation of labeled sliders with number display
+#      When you type in numbers, you get precise values. When you use
+#      the slider, the internal value is rounded to the text display,
+#      so the display is only approximate (except in integer mode)
+#      The value is updated from the text control when you type Enter.
+#
+# Roger B. Dannenberg, updated March 2017
+
+# Update logic: there are 3 sources of update:
+#   - set_value(x) called from code
+#   - number_changed() callback
+#   - slider_changed() callback
+#
+# number_changed() needs to set internal value precisely,
+#   then update slider only - no text rounding
+# slider_changed() needs to set internal value precisely,
+#   then round to update number
+# set_value() needs to set internal value and update slider and 
+#   number with rounded values
+# In all cases, we set_value(x) with exact value, then decide what 
+#   to update. When there's an update, we can use keyword parameters
+#   to control whether to update controls, and if we update controls
+#   we can use ignore_set_value to protect against recursive calls to
+#   set_value()
+# The nudge(n) method will increment the underlying slider (with
+#   values 0 to 1000 by n, and integer. The slider value will update
+#   according to the style.
+
+require "utils" // for interpolate()
+require "wxserpent"
+
+log_of_10_over_20 = log(10.0) / 20.0
+
+def slider_to_db(x, maxdb)
+    # x is integer from 0 to 1000
+    # result is dB -120 to maxdb
+    # from 100 to 1000, output is logarithmic
+    # below 100, output is linear from 0 to 0.01, so 1 maps to 
+    # 0.0001 = -80dB, 100 maps to -40dB
+    # rather than -infinity, 0 maps to -120dB for convenient display
+    var db
+    if x == 0
+        db = -120.0
+    elif x < 100: // do linear_to_db conversion
+        db = log(x * 0.0001) / log_of_10_over_20
+    else
+        db = interpolate(x, 100, -40.0, 1000, maxdb)
+    return db
+
+
+def db_to_slider(db, maxdb)
+    # reverse mapping of slider_to_db
+    // db-to-linear conversion
+    var m = exp(log_of_10_over_20 * maxdb) // maxdb to linear factor
+    var x = exp(log_of_10_over_20 * db)
+    // x is linear value corresponding to db
+    if db > maxdb
+        x = 1000
+    elif x < 0.01
+        x = max(x, 0) * 10000
+    else
+        x = interpolate(min(db, maxdb), -40.0, 100, maxdb, 1000)
+    return round(x, 0)
+
+
+def slider_to_pan(x)
+    # x is integer from 0 to 1000
+    # results is float pan from 0 to 1 (0.5 is "middle")
+    x / 1000
+
+
+def pan_to_slider(x)
+    # x is float pan from 0 to 1.0
+    # result is integer from 0 to 1000
+    round(x * 1000, 0)
+
+LS_NUMBER_WIDTH = 50
+
+// Labeled_slider is a [label, slider, number_display] configuration
+// The slider can be mapped to number in a linear, exponential, integer, or 
+// db style. The db style is recommended for faders and has a non-linear
+// range of -120dB to MAXdB, where MAX is the max (9th) parameter to init.
+// The integer style means values are integers.
+
+class Labeled_slider
+    var id
+    var label
+    var slider
+    var number
+    var mapping
+    var minv         // val is restricted to this range
+    var maxv
+    var min_svalue   // slider values are in this range
+    var max_svalue
+    var val
+    var target
+    var method
+    var x, y, w, h, labelwidth
+    var ignore_set_value
+
+    def init(win, lab, x_, y_, w_, h_, labelwidth_, min, max, default, map) 
+        x = x_
+        y = y_
+        w = w_
+        h = h_
+        labelwidth = labelwidth_
+        label = Statictext(win, lab, x, y, labelwidth, h)
+
+        slider = Slider(win, 0, 1000, 0, x + labelwidth, y, 
+                        w - labelwidth - LS_NUMBER_WIDTH - 5, h)
+        slider.target = this
+        slider.method = 'slider_changed'
+        number = Textctrl(win, "", x + w - LS_NUMBER_WIDTH, y, 
+                            LS_NUMBER_WIDTH, min(24, h))
+        number.target = this
+        number.method = 'number_changed'
+        set_range(min, max, default, map)
+
+
+    def set_position(x, y)
+        label.set_position(x, y)
+        slider.set_position(x + labelwidth, y)
+        number.set_position(x + w - LS_NUMBER_WIDTH, y)
+
+    def get_height(): h
+
+    def get_width(): w
+
+    def slider_changed(source, event, x, y)
+        // display "slider_changed", x, min_svalue, max_svalue, mapping, ignore_set_value
+        var value
+        if ignore_set_value
+            return
+        if mapping == 'linear' or mapping == 'integer'
+            // display "mapping is linear"
+            value = interpolate(x, 0, min_svalue, 1000, max_svalue)
+            if mapping == 'integer'
+                value = round(value)
+        elif mapping == 'db'
+            value = slider_to_db(x, maxv)
+        elif mapping == 'exponential'
+            value = exp(interpolate(x, 0, min_svalue, 1000, max_svalue))
+        set_value(value, from_slider = true)
+
+
+    def number_changed(source, event, x, y)
+        // display "number_changed", x, min_svalue, max_svalue, mapping, ignore_set_value
+        if ignore_set_value
+            return
+        var text = source.value()
+        if event == WXS_TEXT_ENTER:
+            var v = real(text)
+            slider_ignore = true
+            if v >= minv and v <= maxv
+                set_value(v, from_number = true, act = true)
+            else
+                set_value(val, from_number = true)
+            slider_ignore = false
+
+
+    def set_range(minv_, maxv_, default, map)
+        minv = minv_
+        maxv = maxv_
+        min_svalue = real(minv)
+        max_svalue = real(maxv)
+        val = default
+        mapping = map
+        if mapping == 'exponential'
+            min_svalue = log(min_svalue)
+            max_svalue = log(max_svalue)
+        elif mapping == 'db'
+            minv = -120.0
+        elif mapping != 'linear' and mapping != 'integer'
+            print "ERROR in Labeled_slider(): mapping =", mapping
+        set_value(default)
+        
+
+    def set_and_act(x): set_value(x, act = true)
+
+
+    def set_value(x, keyword from_slider, keyword from_number, keyword act)
+        if mapping == 'integer'
+            x = round(x)
+            from_number = false
+        val = x
+        // display "set_value", val, from_slider, from_number, act
+        if (act or from_slider or from_number) and method
+            if target
+                send(target, method, this, val)
+            else
+                funcall(method, this, val)
+        ignore_set_value = true
+
+        // do slider update if needed
+        if not from_slider
+            if mapping == 'linear' or mapping == 'integer'
+                x = round(interpolate(x, min_svalue, 0, max_svalue, 1000), 0)
+            elif mapping == 'exponential'
+                x = round(interpolate(log(real(x)),
+                                      min_svalue, 0, max_svalue, 1000), 0)
+            elif mapping == 'db'
+                x = db_to_slider(x, maxv)
+            slider.set_value(x)
+
+        // do number update if needed
+        if not from_number
+            var s
+            if mapping == 'integer'
+                s = str(round(val))
+            else
+                s = float_places(val, 2)
+            number.set_string(s)
+        ignore_set_value = false
+
+
+    def value(): 
+        val
+
+    def set_label(s): label.set_string(s)
+
+    def nudge(n):
+        // first get the underlying value
+        var x = slider.value()
+        display "nudge slider value", x
+        // update the value, observing max and min limits
+        x = max(0, min(1000, x + n))
+        // set the value into the slider
+        slider.set_and_act(x)
